@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 class GradientButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  // CHANGE 1: Add '?' to make it nullable
+  final VoidCallback? onPressed; 
   final double width;
   final double height;
   final LinearGradient gradient;
@@ -14,7 +15,8 @@ class GradientButton extends StatelessWidget {
   const GradientButton({
     super.key,
     required this.text,
-    required this.onPressed,
+    // CHANGE 2: Remove 'required' so it can receive null
+    this.onPressed, 
     required this.gradient,
     this.borderRadius = 30,
     this.icon,
@@ -27,10 +29,15 @@ class GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: width,
-        height: height,
+      // CHANGE 3: GestureDetector handles null automatically (it will do nothing)
+      onTap: onPressed, 
+      child: Opacity(
+        // OPTIONAL: Dim the button slightly if it's disabled
+        opacity: onPressed == null ? 0.6 : 1.0,
+        child: Container(
+          width: width,
+          height: height,
+          // ... rest of your code stays exactly the same
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),
           gradient: gradient,
@@ -75,6 +82,7 @@ class GradientButton extends StatelessWidget {
           ),
         ),
       ),
+    )
     );
   }
 }

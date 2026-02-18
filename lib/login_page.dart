@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'otp_verification_page.dart';
+import 'services/auth_service.dart';
 import 'widgets.dart/gradient_button.dart';
+
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -11,11 +13,53 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _phoneController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    _phoneController.dispose(); // always dispose controller
+    _phoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> sendOtp() async {
+    String phone = _phoneController.text.trim();
+
+    if (phone.isEmpty || phone.length != 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter valid 10 digit mobile number")),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await AuthService.sendOtp(phone);
+
+      if (response['status'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'])),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                OtpVerificationPage(mobile: phone),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? "Failed")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Something went wrong")),
+      );
+    }
+
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -44,95 +88,31 @@ class _MyHomePageState extends State<MyHomePage> {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 30.0),
-                Text(
-                  'Welcome to Glapod',
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 10.0),
-                Text(
-                  'Learn better with expert curated content',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 10.0),
+                const SizedBox(height: 30),
 
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
-                    enabledBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white, width: 2),
-                    ),
+                    border: OutlineInputBorder(),
                     labelText: 'Enter Phone Number',
-                    prefixIcon: Icon(
-                      Icons.phone_android,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
                   ),
                 ),
 
-                const SizedBox(height: 20.0),
+                const SizedBox(height: 20),
 
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: GradientButton(
-                    text: 'Send OTP',
+                    text: _isLoading ? "Sending..." : "Send OTP",
                     gradient: const LinearGradient(
                       colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
                     ),
-                    onPressed: () {
-                      String phone = _phoneController.text;
-
-                      print("Phone Number: $phone");
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const OtpVerificationPage(),
-                        ),
-                      );
-                    },
+                    onPressed: _isLoading ? null : sendOtp,
                   ),
-                ),
-
-                const SizedBox(height: 30.0),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Already registered ? ",
-                      style: TextStyle(color: Color.fromRGBO(0, 0, 0, 0.702)),
-                    ),
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () {},
-                      child: const Text(
-                        "Login",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color.fromARGB(255, 59, 100, 12),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
