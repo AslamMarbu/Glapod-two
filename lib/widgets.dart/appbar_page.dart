@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:glapod/profile.dart';
+import 'package:glapod/storage/local_storage_service.dart';
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double height;
   final Color backgroundColor;
@@ -36,11 +37,29 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ],
         ),
       ),
-      actionsPadding: const EdgeInsets.all(20.0),
-      actions: const [
-        Icon(Icons.notifications, color: Colors.white),
-        SizedBox(width: 12),
-        Icon(Icons.person, color: Colors.white),
+      actionsPadding: const EdgeInsets.only(right: 10.0), // Adjusted padding
+      actions: [
+        IconButton(
+          icon:  Icon(Icons.notifications, color: Colors.white),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) =>  ProfilePage()),
+            );
+          },
+        ),
+         SizedBox(width: 5),
+        // --- The Profile Button ---
+        IconButton(
+          icon:  Icon(Icons.person, color: Colors.white),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) =>  ProfilePage()),
+            );
+          },
+        ),
+         SizedBox(width: 10),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'widgets.dart/gradient_button.dart';
-import 'profile_page.dart';
+import 'profile.dart';
+
 
 class ActivateContinuePage extends StatefulWidget {
   const ActivateContinuePage({super.key});
@@ -22,7 +23,7 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
 
     await Future.delayed(const Duration(seconds: 2));
 
-    if (codeController.text == 'GLAPOD123') {
+    if (codeController.text == '+') {
       setState(() {
         isLoading = false;
       });
