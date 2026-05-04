@@ -1,164 +1,238 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:glapod/chapter_listing.dart'; // Make sure to import your new detail page
-import 'package:glapod/question_papers_page.dart';
-import 'package:glapod/solutions_page.dart'; // Import the solutions page
+import 'package:glapod/questions_page.dart';
+import 'package:glapod/utils/app_colors.dart';
+import 'subject_circular_icon.dart';
+import 'package:glapod/chapter_listing.dart';
+import 'package:glapod/question_bank.dart';
+import 'package:glapod/textbook_listing_page.dart';
+import 'package:glapod/sample_papers_page.dart';
 
 class SubjectCard extends StatelessWidget {
-  final String title;
+  final String subjectId;
   final String? syllabusUrl;
   final String? textbookUrl;
-  final List<dynamic> chapters;
+  final List<dynamic> textbooksList;
+  final String subjectName;
+  final String classId;
+  final List<dynamic>? chapters;
+  final String? imageUrl;
+
+  final bool isQuestionBankEnabled;
+  final bool isQuestionsEnabled;
 
   const SubjectCard({
     super.key,
-    required this.title,
+    required this.subjectId,
+    required this.subjectName,
+    required this.textbooksList,
     this.syllabusUrl,
     this.textbookUrl,
-    required this.chapters,
+    this.chapters,
+    required this.classId,
+    this.imageUrl,
+    this.isQuestionBankEnabled = true,
+    this.isQuestionsEnabled = true,
   });
 
-  // Function to handle the "Download/Open" logic for PDF/Links
-  Future<void> _downloadFile(BuildContext context, String? url, String type) async {
-    if (url == null || url.isEmpty || url == "null") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("No $type available")),
-      );
-      return;
-    }
-
-    final String cleanUrl = url.trim();
-    final Uri uri = Uri.parse(cleanUrl);
-
-    try {
-      bool launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched) throw 'Launch returned false';
-    } catch (e) {
-      debugPrint("Error launching URL: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Could not open. Make sure a browser is installed.")),
+  void _handleNavigation(BuildContext context) {
+    if (chapters == null || chapters!.isEmpty) {
+      _showNoChaptersSnackBar(context);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SubjectDetailPage(
+            subjectId: subjectId,
+            subjectName: subjectName,
+            chapters: chapters!,
+          ),
+        ),
       );
     }
   }
 
+  void _showNoChaptersSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("No chapters available"),
+        backgroundColor: Colors.black87,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 🔹 Responsive values (safe scaling)
+    final width = MediaQuery.of(context).size.width;
+    final imageWidth = width * 0.25;   // ~100 on normal phones
+    final imageHeight = width * 0.38;  // keeps same ratio feel
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- CLICKABLE SUBJECT TITLE ---
+          // --- HEADER ---
           InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SubjectDetailPage(
-                    subjectName: title,
-                    chapters: chapters,
+            onTap: () => _handleNavigation(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 15, 20, 5),
+              child: Row(
+                children: [
+                  // 🔹 Prevent overflow for long names
+                  Expanded(
+                    child: Text(
+                      subjectName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textHeadingBlack,
+                      ),
+                    ),
                   ),
-                ),
-              );
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "$title >",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
                     color: Colors.blue,
-                    fontSize: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const Divider(
+            thickness: 1.0,
+            indent: 20,
+            endIndent: 20,
+            color: Color(0xFFF5F5F5),
+          ),
+
+          // --- CONTENT ---
+          Padding(
+            padding: const EdgeInsets.only(bottom: 15, top: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🔹 Image
+                InkWell(
+                  onTap: () => _handleNavigation(context),
+                  borderRadius: BorderRadius.circular(15),
+                  child: Container(
+                    width: imageWidth,
+                    height: imageHeight,
+                    margin: const EdgeInsets.only(left: 20, right: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(15),
+                      image: (imageUrl != null && imageUrl!.isNotEmpty)
+                          ? DecorationImage(
+                        image: NetworkImage(imageUrl!),
+                        fit: BoxFit.cover,
+                      )
+                          : null,
+                    ),
+                    child: (imageUrl == null || imageUrl!.isEmpty)
+                        ? Icon(
+                      Icons.image,
+                      color: Colors.grey.shade300,
+                      size: 30,
+                    )
+                        : null,
                   ),
                 ),
+
+                // 🔹 Grid
+                Expanded(
+                  child: GridView.count(
+                    crossAxisCount: 3,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 0.75,
+                    children: [
+                      CircularIconButton(
+                        icon: Icons.menu_book_rounded,
+                        label: "Textbook",
+                        backgroundColor: const Color(0xFF4DB6AC),
+                        isEnabled: textbooksList.isNotEmpty,
+                        page: textbooksList.isNotEmpty
+                            ? TextbookListingPage(
+                          subjectName: subjectName,
+                          textbooks: textbooksList,
+                        )
+                            : null,
+                      ),
+                      CircularIconButton(
+                        icon: Icons.assignment_outlined,
+                        label: "Syllabus",
+                        backgroundColor: const Color(0xFF9575CD),
+                        isEnabled: syllabusUrl != null &&
+                            syllabusUrl!.isNotEmpty &&
+                            syllabusUrl != "null",
+                        url: syllabusUrl,
+                      ),
+                      CircularIconButton(
+                        icon: Icons.quiz_outlined,
+                        label: "Practice",
+                        backgroundColor: const Color(0xFFFF8A65),
+                        isEnabled: isQuestionBankEnabled,
+                        page: isQuestionBankEnabled
+                            ? SamplePapersPage(
+                          subjectId: subjectId,
+                          subjectName: subjectName,
+                          classId: classId,
+                        )
+                            : null,
+                      ),
+                      CircularIconButton(
+                        icon: Icons.help_outline_rounded,
+                        label: "Questions",
+                        backgroundColor: const Color(0xFF64B5F6),
+                        isEnabled: isQuestionsEnabled,
+                        page: isQuestionsEnabled
+                            ? QuestionsPage(
+                          subjectId: subjectId,
+                          subjectName: subjectName,
+                        )
+                            : null,
+                      ),
+                      CircularIconButton(
+                        icon: Icons.quiz_outlined,
+                        label: "Q Bank",
+                        backgroundColor: const Color(0xFFA29BFE),
+                        isEnabled: isQuestionBankEnabled,
+                        page: isQuestionBankEnabled
+                            ? QuestionBankPage(
+                          subjectId: subjectId,
+                          subjectName: subjectName,
+                          classId: classId,
+                        )
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 10),
               ],
             ),
           ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildIconColumn(
-                context,
-                Icons.book,
-                "Textbook",
-                onTap: () => _downloadFile(context, textbookUrl, "textbook"),
-              ),
-              _buildIconColumn(
-                context,
-                Icons.description,
-                "Syllabus",
-                onTap: () => _downloadFile(context, syllabusUrl, "syllabus"),
-              ),
-              _buildIconColumn(
-                context,
-                Icons.help,
-                "Questions",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => QuestionPapersPage(
-                        subjectName: title, // optional if you want to pass subject
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildIconColumn(
-                context,
-                Icons.lightbulb,
-                "Solutions",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SolutionsPage(
-                        subjectName: title,
-                        chapters: chapters,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIconColumn(
-      BuildContext context,
-      IconData icon,
-      String label, {
-        VoidCallback? onTap,
-      }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.blue.withOpacity(0.1),
-            child: Icon(icon, size: 20, color: Colors.blue),
-          ),
-          const SizedBox(height: 5),
-          Text(label, style: const TextStyle(fontSize: 10)),
         ],
       ),
     );

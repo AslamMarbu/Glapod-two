@@ -1,24 +1,32 @@
 import 'dart:io';
+import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb; // Import kIsWeb
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
+
 class DeviceService {
-  static Future<String?> getUniqueId() async {
-    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+  static Future<String> getDeviceId() async {
+    // 1. ALWAYS check kIsWeb first
+    String? webId='';
     if (kIsWeb) {
-      WebBrowserInfo webBrowserInfo = await deviceInfo.webBrowserInfo;
-      // Since there is no hardware ID on web, userAgent + vendor is a common substitute
-      // or use browserFingerprint if you use a specific package for that.
-      return "${webBrowserInfo.userAgent}_${webBrowserInfo.vendor}";
-    }else if (Platform.isAndroid) {
-      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-      // 'id' is the hardware/build ID; 'serialNumber' is often restricted.
-      // For many, 'id' or a combination of fields is used.
-      return androidInfo.id;
-    } else if (Platform.isIOS) {
-      IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-      // identifierForVendor is the standard unique ID for iOS
-      return iosInfo.identifierForVendor;
+      final random = Random();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      webId = "web_${now}_${random.nextInt(1000000)}";
     }
-    return null;
+
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+
+    try {
+      if (Platform.isAndroid) {
+        AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+        return androidInfo.id; // Unique ID for Android
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor ?? "iOS_Device";
+      }
+    } catch (e) {
+      return "Error_Device";
+    }
+
+    return "Unknown_Device";
   }
 }

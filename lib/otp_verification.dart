@@ -1,36 +1,43 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
+import 'storage/local_storage_service.dart';
 import 'services/auth_service.dart';
-import 'student_dashboard.dart';
 import 'utils/ui_utils.dart';
 import 'free_trial.dart';
 import 'widgets.dart/gradient_button.dart';
-import 'storage/local_storage_service.dart';
+import 'profile.dart';
 
 class OtpVerificationPage extends StatefulWidget {
-  final String mobile;
+  final String name;
+  final String email;
+  final String phone;
+  final String password;
+  final String device;
 
-  const OtpVerificationPage({super.key, required this.mobile});
+  const OtpVerificationPage({
+    super.key,
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.password,
+    required this.device,
+  });
 
   @override
-  State<OtpVerificationPage> createState() =>
-      _OtpVerificationPageState();
+  State<OtpVerificationPage> createState() => _OtpVerificationPageState();
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _otpController =
-      TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
 
   bool _isLoading = false;
   bool _hasError = false;
 
-  // 🔥 Shake Animation
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
 
-  // 🔥 Timer
   Timer? _timer;
   int _secondsRemaining = 60;
   bool _canResend = false;
@@ -38,6 +45,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
   @override
   void initState() {
     super.initState();
+
     startTimer();
 
     _shakeController = AnimationController(
@@ -45,12 +53,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       duration: const Duration(milliseconds: 500),
     );
 
-    _shakeAnimation =
-        Tween<double>(begin: 0, end: 10).animate(
-      CurvedAnimation(
-        parent: _shakeController,
-        curve: Curves.elasticIn,
-      ),
+    _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
   }
 
@@ -59,17 +63,14 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
     _canResend = false;
 
     _timer?.cancel();
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        if (_secondsRemaining > 0) {
-          setState(() => _secondsRemaining--);
-        } else {
-          setState(() => _canResend = true);
-          timer.cancel();
-        }
-      },
-    );
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        setState(() => _secondsRemaining--);
+      } else {
+        setState(() => _canResend = true);
+        timer.cancel();
+      }
+    });
   }
 
   @override
@@ -84,7 +85,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
     String otp = _otpController.text.trim();
 
     if (otp.length != 6) {
-      Messenger.show(context, "Enter 6 digit OTP",type: MessageType.error);
+      Messenger.show(context, "Enter 6 digit OTP", type: MessageType.error);
       return;
     }
 
@@ -93,68 +94,112 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       _hasError = false;
     });
 
-    final data =
-        await AuthService.verifyOtp(widget.mobile, otp);
+    try {
+      final response = await AuthService.otpVerification(
+        name: widget.name,
+        email: widget.email,
+        phone: widget.phone,
+        password: widget.password,
+        otp: otp,
+        device: widget.device,
+      );
 
-    setState(() => _isLoading = false);
+      if (response['status'] == true || response['status'] == "true") {
 
-    if (data['status'] == true) {
-      await LocalStorageService.setToken(data["token"]);
-      await LocalStorageService.setStudent(data["student"]);
-      await LocalStorageService.setLoggedUser(data["student"]["id"]);
-      Messenger.show(context,data['message'],type: MessageType.success);
-      
-       Map<String, dynamic> student = data["student"];
+        // 1. Success Message
 
-          String key = student["key"];
-          String subscriptionEnd = student["subscription_end"];
+        Messenger.hide(context);
+        Messenger.show(
+          context,
+          response['message'] ?? "Verification successful",
+          type: MessageType.success,
+        );
 
-          DateTime now = DateTime.now();
+        // 2. Data Persistence
+        if (response['token'] != null) {
+          final student = response['student'];
 
-          bool isActiveSubscription = false;
+          // Save the main session
+          await LocalStorageService.saveUserSession(
+            token: response['token'],
+            studentData: student,
+          );
 
-          if (subscriptionEnd != "0000-00-00 00:00:00") {
-            DateTime endDate = DateTime.parse(subscriptionEnd);
-            isActiveSubscription = endDate.isAfter(now);
-          }
+          // Calculate and Save Trial Days (Same logic as login)
+          DateTime createdAt = student['account_created_on'] != null
+              ? DateTime.parse(student['account_created_on'])
+              : DateTime.now();
+          int trialAllowed = student['trail_time'] ?? 7;
+          int daysUsed = DateTime.now().difference(createdAt).inDays;
+          int remaining = trialAllowed - daysUsed;
 
-          if (key == "activated" && isActiveSubscription) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => StudentDashboardPage()),
-            );
-          } else {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => FreeTrialPage()),
-            );
-          }
-    } else {
-      
-      setState(() => _hasError = true);
+          await LocalStorageService.saveTrialDays(remaining);
+        }
 
-      _shakeController.forward(from: 0);
-      _otpController.clear();
+        if (mounted) {
+          // 3. Mandatory Redirection
+          // Since this is a new registration, class_id is null,
+          // so ProfilePage is the correct destination.
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const FreeTrialPage()),
+                (route) => false,
+          );
+        }
+      } else {
+        // 3. Handle Failure (e.g., "Invalid or expired OTP")
+        setState(() => _hasError = true);
+        _shakeController.forward(from: 0);
 
-      Messenger.show(context, data['message'] ?? "Invalid OTP",type: MessageType.error);
+
+        Messenger.show(
+          context,
+          response['message'] ?? "Verification failed",
+          type: MessageType.error,
+        );
+      }
+    } catch (e) {
+      Messenger.show(
+        context,
+        "Something went wrong. Please try again.",
+        type: MessageType.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _handleResendOtp() async {
     if (!_canResend) return;
 
-    final response =
-        await AuthService.sendOtp(widget.mobile);
+    final response = await AuthService.registerAndSendOtp(
+      name: widget.name,
+      email: widget.email,
+      phone: widget.phone,
+      password: widget.password,
+      device: widget.device,
+    );
 
     if (response['status'] == true) {
-      Messenger.show(context, "OTP Resent Successfully",type: MessageType.success);
+      // Dynamically use the message from API ("OTP sent successfully")
+      String msg = response['message'] ?? "OTP Resent Successfully";
+
+      // Optional: Append OTP for testing
+      if (response['otp'] != null) {
+        msg = "$msg: ${response['otp']}";
+      }
+
+      Messenger.show(context, msg, type: MessageType.success);
       startTimer();
     } else {
-      Messenger.show(context, "Failed to resend OTP",type: MessageType.error);
+      // Dynamically use the error message from API
+      String errorMsg = response['message'] ?? "Failed to resend OTP";
+      Messenger.show(context, errorMsg, type: MessageType.error);
     }
   }
 
-  // UI  Starts Here//
   @override
   Widget build(BuildContext context) {
     final defaultPinTheme = PinTheme(
@@ -164,105 +209,137 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _hasError ? Colors.red : Colors.grey,
-        ),
+        border: Border.all(color: _hasError ? Colors.red : Colors.grey),
       ),
     );
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/image.png'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Verify OTP',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                // 🔥 SHAKE WRAPPER
-                AnimatedBuilder(
-                  animation: _shakeAnimation,
-                  builder: (context, child) {
-                    return Transform.translate(
-                      offset: Offset(
-                          _shakeAnimation.value *
-                              (1 -
-                                  (_shakeController.value *
-                                      2).abs()),
-                          0),
-                      child: child,
-                    );
-                  },
-                  child: Pinput(
-                    controller: _otpController,
-                    length: 6,
-                    enabled: !_isLoading,
-                    defaultPinTheme: defaultPinTheme,
-                    //onCompleted: (value) {
-                     // verifyOtp();
-                   // },
-                   onTap: () {
-                      if (_hasError) {
-                        setState(() => _hasError = false);
-                      }
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: GradientButton(
-                    text:
-                        _isLoading ? "Verifying..." : "Verify OTP",
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
-                    ),
-                    onPressed:
-                        _isLoading ? null : _handleVerifyOtp,
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                // 🔥 RESEND SECTION
-                _canResend
-                    ? TextButton(
-                        onPressed: _handleResendOtp,
-                        child: const Text(
-                          "Resend OTP",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold),
-                        ),
-                      )
-                    : Text(
-                        "Resend OTP in $_secondsRemaining seconds",
-                        style: const TextStyle(
-                            color: Colors.grey),
-                      ),
-              ],
+      body: Stack(
+        children: [
+          /// BACKGROUND GRADIENT
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFE5F3FF), Color(0xFFE9FFE9)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
           ),
-        ),
+
+          /// TOP WAVE
+          Positioned(
+            top: -400,
+            left: 0,
+            right: -60,
+            bottom: 490,
+            child: Image.asset(
+              "assets/images/bot.jpeg",
+              width: MediaQuery.of(context).size.width,
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          /// BOTTOM WAVE
+          Positioned(
+            bottom: -60,
+            left: -60,
+            right: -40,
+            top: 600,
+            child: Image.asset(
+              "assets/images/top.jpeg",
+              width: MediaQuery.of(context).size.width * 1.2,
+              fit: BoxFit.fill,
+            ),
+          ),
+
+          /// MAIN CONTENT
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Verify OTP",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    AnimatedBuilder(
+                      animation: _shakeAnimation,
+                      builder: (context, child) {
+                        // Simple sine wave shake
+                        final double offset =
+                            (0.5 - (0.5 - _shakeController.value).abs()) * 20;
+                        return Transform.translate(
+                          offset: Offset(_hasError ? offset : 0, 0),
+                          child: child,
+                        );
+                      },
+
+                      child: Pinput(
+                        controller: _otpController,
+                        length: 6,
+                        // Keep it enabled unless actually loading to allow corrections
+                        enabled: !_isLoading,
+                        defaultPinTheme: defaultPinTheme,
+
+                        // FIX: Allow rewriting by clearing error state when value changes
+                        onChanged: (value) {
+                          if (_hasError) {
+                            setState(() => _hasError = false);
+                          }
+                        },
+
+                        // OPTIONAL: Auto-submit when the 6th digit is entered
+                        // onCompleted: (pin) => _handleVerifyOtp(),
+
+                        // TEXT CONFIGURATION
+                        showCursor: true,
+                        autofocus: true,
+                      ),
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: GradientButton(
+                        text: _isLoading ? "Verifying..." : "Verify OTP",
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
+                        ),
+                        onPressed: _isLoading ? null : _handleVerifyOtp,
+                      ),
+                    ),
+
+                    const SizedBox(height: 25),
+
+                    _canResend
+                        ? TextButton(
+                            onPressed: _handleResendOtp,
+                            child: const Text(
+                              "Resend OTP",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : Text(
+                            "Resend OTP in $_secondsRemaining seconds",
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
