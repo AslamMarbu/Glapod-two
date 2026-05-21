@@ -11,12 +11,13 @@ class GradientButton extends StatelessWidget {
   final double borderRadius;
   final bool circularIcon;
   final MainAxisAlignment contentAlignment;
+  final double iconSize;
+  final double fontSize;
 
   const GradientButton({
     super.key,
     required this.text,
-    // CHANGE 2: Remove 'required' so it can receive null
-    this.onPressed, 
+    this.onPressed,
     required this.gradient,
     this.borderRadius = 30,
     this.icon,
@@ -24,6 +25,8 @@ class GradientButton extends StatelessWidget {
     this.height = 50,
     this.circularIcon = true,
     this.contentAlignment = MainAxisAlignment.center,
+    this.iconSize = 22,
+    this.fontSize = 18,
   });
 
   @override
@@ -63,20 +66,19 @@ class GradientButton extends StatelessWidget {
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(icon, size: 18, color: Color(0xFF2FB7FF)),
+                    child: Icon(icon, size: iconSize - 4, color: Color(0xFF2FB7FF)),
                       )
-                    : Icon(icon, size: 22, color: Colors.white),
-
+                    : Icon(icon, size: iconSize, color: Colors.white),
                 const SizedBox(width: 10),
               ],
 
               Text(
                 text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                  ),
               ),
             ],
           ),

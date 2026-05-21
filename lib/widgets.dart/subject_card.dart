@@ -1,164 +1,224 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:glapod/chapter_listing.dart'; // Make sure to import your new detail page
-import 'package:glapod/question_papers_page.dart';
-import 'package:glapod/solutions_page.dart'; // Import the solutions page
+import 'package:cached_network_image/cached_network_image.dart'; // 🔹 Essential for caching
+import 'package:glapod/questions_page.dart';
+import 'package:glapod/chapter_listing.dart';
+import 'package:glapod/question_bank.dart';
+import 'package:glapod/textbook_listing_page.dart';
+import 'package:glapod/sample_papers_page.dart';
+import 'subject_circular_icon.dart';
 
-class SubjectCard extends StatelessWidget {
-  final String title;
+class SubjectCard extends StatefulWidget {
+  final String subjectId;
   final String? syllabusUrl;
   final String? textbookUrl;
-  final List<dynamic> chapters;
+  final List<dynamic> textbooksList;
+  final String subjectName;
+  final String classId;
+  final List<dynamic>? chapters;
+  final String? imageUrl;
+
+  final bool isQuestionBankEnabled;
+  final bool isQuestionsEnabled;
+  final bool isSamplePaperEnabled;
 
   const SubjectCard({
     super.key,
-    required this.title,
+    required this.subjectId,
+    required this.subjectName,
+    required this.textbooksList,
     this.syllabusUrl,
     this.textbookUrl,
-    required this.chapters,
+    this.chapters,
+    required this.classId,
+    this.imageUrl,
+    this.isQuestionBankEnabled = true,
+    this.isQuestionsEnabled = true,
+    this.isSamplePaperEnabled = true,
   });
 
-  // Function to handle the "Download/Open" logic for PDF/Links
-  Future<void> _downloadFile(BuildContext context, String? url, String type) async {
-    if (url == null || url.isEmpty || url == "null") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("No $type available")),
-      );
-      return;
-    }
+  @override
+  State<SubjectCard> createState() => _SubjectCardState();
+}
 
-    final String cleanUrl = url.trim();
-    final Uri uri = Uri.parse(cleanUrl);
+class _SubjectCardState extends State<SubjectCard> {
+  bool _isExpanded = false;
 
-    try {
-      bool launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched) throw 'Launch returned false';
-    } catch (e) {
-      debugPrint("Error launching URL: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Could not open. Make sure a browser is installed.")),
+  void _handleNavigation(BuildContext context) {
+    if (widget.chapters == null || widget.chapters!.isEmpty) {
+      _showNoChaptersSnackBar(context);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SubjectDetailPage(
+            subjectId: widget.subjectId,
+            subjectName: widget.subjectName,
+            chapters: widget.chapters!,
+          ),
+        ),
       );
     }
+  }
+
+  void _showNoChaptersSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("No chapters available"),
+        backgroundColor: Colors.black87,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- CLICKABLE SUBJECT TITLE ---
+          // 1. HEADER BANNER (With Image Caching)
           InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SubjectDetailPage(
-                    subjectName: title,
-                    chapters: chapters,
+            onTap: () => _handleNavigation(context),
+            borderRadius: BorderRadius.circular(25),
+            child: Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(25),
+                image: (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
+                    ? DecorationImage(
+                  // 🔹 Using Provider here to work inside BoxDecoration
+                  image: CachedNetworkImageProvider(widget.imageUrl!),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Colors.black.withOpacity(0.3),
+                    BlendMode.darken,
                   ),
+                )
+                    : null,
+                color: Colors.grey.shade200,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                widget.subjectName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                        blurRadius: 8,
+                        color: Colors.black54,
+                        offset: Offset(2, 2)
+                    )
+                  ],
                 ),
-              );
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "$title >",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildIconColumn(
-                context,
-                Icons.book,
-                "Textbook",
-                onTap: () => _downloadFile(context, textbookUrl, "textbook"),
-              ),
-              _buildIconColumn(
-                context,
-                Icons.description,
-                "Syllabus",
-                onTap: () => _downloadFile(context, syllabusUrl, "syllabus"),
-              ),
-              _buildIconColumn(
-                context,
-                Icons.help,
-                "Questions",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => QuestionPapersPage(
-                        subjectName: title, // optional if you want to pass subject
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildIconColumn(
-                context,
-                Icons.lightbulb,
-                "Solutions",
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SolutionsPage(
-                        subjectName: title,
-                        chapters: chapters,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildIconColumn(
-      BuildContext context,
-      IconData icon,
-      String label, {
-        VoidCallback? onTap,
-      }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.blue.withOpacity(0.1),
-            child: Icon(icon, size: 20, color: Colors.blue),
+          // 2. ACCORDION TRIGGER BAR
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  _isExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: Colors.grey,
+                  size: 28,
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 5),
-          Text(label, style: const TextStyle(fontSize: 10)),
+
+          // 3. EXPANDABLE CONTENT
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 15, 20),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 15,
+                children: [
+                  CircularIconButton(
+                    icon: Icons.menu_book_rounded,
+                    label: "Textbook",
+                    backgroundColor: const Color(0xFF4DB6AC),
+                    isEnabled: widget.textbooksList.isNotEmpty,
+                    page: widget.textbooksList.isNotEmpty
+                        ? TextbookListingPage(
+                      subjectName: widget.subjectName,
+                      textbooks: widget.textbooksList,
+                    )
+                        : null,
+                  ),
+                  CircularIconButton(
+                    icon: Icons.assignment_outlined,
+                    label: "Syllabus",
+                    backgroundColor: const Color(0xFF9575CD),
+                    isEnabled: widget.syllabusUrl != null &&
+                        widget.syllabusUrl!.isNotEmpty &&
+                        widget.syllabusUrl != "null",
+                    url: widget.syllabusUrl,
+                  ),
+                  CircularIconButton(
+                    icon: Icons.quiz_outlined,
+                    label: "Practice",
+                    backgroundColor: const Color(0xFFFF8A65),
+                    isEnabled: widget.isSamplePaperEnabled,
+                    page: widget.isSamplePaperEnabled
+                        ? SamplePapersPage(
+                      subjectId: widget.subjectId,
+                      subjectName: widget.subjectName,
+                      classId: widget.classId,
+                    )
+                        : null,
+                  ),
+                  CircularIconButton(
+                    icon: Icons.help_outline_rounded,
+                    label: "Questions",
+                    backgroundColor: const Color(0xFF64B5F6),
+                    isEnabled: widget.isQuestionsEnabled,
+                    page: widget.isQuestionsEnabled
+                        ? QuestionsPage(
+                      subjectId: widget.subjectId,
+                      subjectName: widget.subjectName,
+                    )
+                        : null,
+                  ),
+                  CircularIconButton(
+                    icon: Icons.quiz_outlined,
+                    label: "Q Bank",
+                    backgroundColor: const Color(0xFFA29BFE),
+                    isEnabled: widget.isQuestionBankEnabled,
+                    page: widget.isQuestionBankEnabled
+                        ? QuestionBankPage(
+                      subjectId: widget.subjectId,
+                      subjectName: widget.subjectName,
+                      classId: widget.classId,
+                    )
+                        : null,
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
