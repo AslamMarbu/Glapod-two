@@ -14,8 +14,14 @@ class QuestionViewProvider with ChangeNotifier {
   void setInitialData(List<dynamic> list, int index) {
     _qaList = list;
     _currentIndex = index;
-    // We don't reset _showAnswer here so the preference
-    // stays even if the user re-enters the page.
+    _showAnswer = false; // Always start with answer hidden for a new set
+    notifyListeners();   // This forces the UI to catch the new data immediately
+  }
+  void disposeData() {
+    _qaList = [];
+    _currentIndex = 0;
+    _showAnswer = false;
+    // No notifyListeners() needed here if you call this on dispose
   }
 
   void nextQuestion() {

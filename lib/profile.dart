@@ -21,7 +21,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Helper to mask sensitive data visually
+  // 🔹 UPDATED: Specific masking logic for Phone (2+2) and Email (ar****kh@gmail.com)
   String _maskSensitiveData(String data, {bool isEmail = false}) {
     if (data.isEmpty) return "";
 
@@ -29,11 +29,17 @@ class _ProfilePageState extends State<ProfilePage> {
       final parts = data.split('@');
       if (parts.length != 2) return data;
       String name = parts[0];
-      if (name.length <= 2) return data;
-      return "${name.substring(0, 2)}****@${parts[1]}";
+      String domain = parts[1];
+
+      // Masking: 2 letters + stars + last 2 letters of the name part
+      if (name.length <= 4) {
+        return "${name[0]}**${name[name.length - 1]}@$domain";
+      }
+      return "${name.substring(0, 2)}****${name.substring(name.length - 2)}@$domain";
     } else {
-      if (data.length < 6) return data;
-      return "${data.substring(0, 3)}*****${data.substring(data.length - 2)}";
+      // Logic for Phone Number: First 2 and Last 2 visible
+      if (data.length < 5) return data;
+      return "${data.substring(0, 2)}******${data.substring(data.length - 2)}";
     }
   }
 
@@ -97,7 +103,7 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () async {
                 final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
                 if (image != null) setState(() => _imageFile = File(image.path));
-                Navigator.pop(context);
+                if (mounted) Navigator.pop(context);
               },
             ),
             ListTile(
@@ -106,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () async {
                 final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50);
                 if (image != null) setState(() => _imageFile = File(image.path));
-                Navigator.pop(context);
+                if (mounted) Navigator.pop(context);
               },
             ),
           ],
@@ -122,7 +128,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // --- UPDATED SAVE FUNCTION TO NAVIGATE TO DASHBOARD ---
   Future<void> _handleSaveProfile() async {
     if (selectedClassId == null || selectedClassId!.isEmpty) {
       Messenger.show(context, "Please select a Class of Study first.", type: MessageType.error);
@@ -150,7 +155,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
           Messenger.show(context, "Profile updated!", type: MessageType.success);
 
-          // Redirect to Dashboard after successful save
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const StudentDashboardPage()),

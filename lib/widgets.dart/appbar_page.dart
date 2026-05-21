@@ -6,6 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import '../profile.dart';
 import '../notification_page.dart';
 import '../services/student_service.dart';
+import 'package:glapod/utils/string_utilities.dart';
+
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final double height;
@@ -140,7 +142,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          widget.title ?? "",
+          StringUtils.toSentenceCase(widget.title.toString()) ?? "",
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,

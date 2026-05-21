@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart'; // Added for the effect
 import '../providers/question_provider.dart';
 import '../models/question_year_model.dart';
 import 'questions_year_wise_listing_page.dart';
@@ -34,24 +35,19 @@ class _QuestionsPageState extends State<QuestionsPage> {
   @override
   Widget build(BuildContext context) {
     final qProvider = context.watch<QuestionProvider>();
-
     final width = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: AppColors.mintBackground,
       appBar: CustomAppBar(height: 40, title: widget.subjectName),
       body: qProvider.isLoading
-          ? const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primaryBlue,
-        ),
-      )
+          ? _buildShimmerLoading(width) // Replaced CircularProgressIndicator
           : qProvider.years.isEmpty
           ? const EmptyStateWidget(
         msg: "No years available for this subject yet.",
       )
           : ListView.builder(
-        padding: EdgeInsets.all(width * 0.05), // 🔹 responsive
+        padding: EdgeInsets.all(width * 0.05),
         itemCount: qProvider.years.length,
         itemBuilder: (context, index) {
           return _buildYearCard(
@@ -61,6 +57,28 @@ class _QuestionsPageState extends State<QuestionsPage> {
           );
         },
       ),
+    );
+  }
+
+  /// Shimmer loading skeleton that matches your card UI
+  Widget _buildShimmerLoading(double width) {
+    return ListView.builder(
+      padding: EdgeInsets.all(width * 0.05),
+      itemCount: 8, // Pre-render 8 skeleton items
+      itemBuilder: (context, index) {
+        return Shimmer.fromColors(
+          baseColor: Colors.grey[300]!,
+          highlightColor: Colors.grey[100]!,
+          child: Container(
+            margin: EdgeInsets.symmetric(vertical: width * 0.02),
+            height: width * 0.22, // Approximate height of your ListTile card
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -90,10 +108,10 @@ class _QuestionsPageState extends State<QuestionsPage> {
         title: Text(
           "Year ${data.year}",
           maxLines: 1,
-          overflow: TextOverflow.ellipsis, // 🔹 prevents break
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: width * 0.045, // ~18
+            fontSize: width * 0.045,
             color: AppColors.textHeadingBlack,
           ),
         ),

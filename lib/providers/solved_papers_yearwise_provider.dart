@@ -8,37 +8,20 @@ class SolvedPaperSetProvider with ChangeNotifier {
   List<dynamic> _paperSets = [];
   bool _isLoading = true;
 
+  // Track loading per URL for localized UI spinners
   final Map<String, bool> _downloadingStatus = {};
-  final Set<String> _downloadedUrls = {}; // 🔹 Track downloaded files
 
   List<dynamic> get paperSets => _paperSets;
   bool get isLoading => _isLoading;
-  Map<String, bool> get downloadingStatus => _downloadingStatus;
+  bool isDownloading(String url) => _downloadingStatus[url] ?? false;
 
-  // 🔹 Check if file exists to toggle icon
-  bool isFileDownloaded(String url) => _downloadedUrls.contains(url);
-
-  Future<void> fetchSets(String subjectId, String year) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _paperSets = await _service.fetchPaperSets(subjectId, year) ?? [];
-
-      // 🔹 Sync download status for all fetched papers
-      for (var paper in _paperSets) {
-        String url = paper['file_url'] ?? "";
-        if (url.isNotEmpty && await FileUtils.fileExists(url)) {
-          _downloadedUrls.add(url);
-        }
-      }
-    } catch (e) {
-      _paperSets = [];
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  /// UI helper to check if the "Download" icon should be hidden
+  Future<bool> isPaperDownloaded(String url) async {
+    final file = await FileUtils.getValidCache(url);
+    return file != null;
   }
 
+  /// 🔹 CLEANED: Uses the centralized utility
   Future<File?> downloadPaper(String url) async {
     if (url.isEmpty) return null;
 
@@ -46,18 +29,23 @@ class SolvedPaperSetProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final String localPath = await FileUtils.downloadAndSave(url);
-      final file = File(localPath);
-
-      if (await file.exists()) {
-        _downloadedUrls.add(url); // 🔹 Mark as downloaded
-        return file;
-      }
-      return null;
-    } catch (e) {
-      return null;
+      // The utility handles the 2-day logic and the actual download
+      return await FileUtils.downloadFile(url);
     } finally {
       _downloadingStatus[url] = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchSets(String subjectId, String year) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _paperSets = await _service.fetchPaperSets(subjectId, year) ?? [];
+    } catch (e) {
+      _paperSets = [];
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }

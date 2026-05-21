@@ -16,6 +16,7 @@ class _StudyState extends State<Study> {
   @override
   void initState() {
     super.initState();
+    // Use addPostFrameCallback to trigger the logic after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StudyProvider>().loadSubjects();
     });
@@ -24,8 +25,6 @@ class _StudyState extends State<Study> {
   @override
   Widget build(BuildContext context) {
     final studyProvider = context.watch<StudyProvider>();
-
-    // 🔹 Get screen size once (optimization)
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
@@ -44,10 +43,9 @@ class _StudyState extends State<Study> {
         padding: const EdgeInsets.symmetric(vertical: 20),
         itemBuilder: (context, index) {
           final item = studyProvider.subjects[index];
-
           return SubjectCard(
             subjectId: item['id'].toString(),
-            subjectName: item['subject'] ?? "Unknown",
+            subjectName: item["subject"],
             imageUrl: item['image_url'],
             syllabusUrl: item['syllabus_url'],
             textbooksList: item['textbooks_url'] ?? [],
@@ -57,22 +55,15 @@ class _StudyState extends State<Study> {
                 : null,
             chapters: item['chapters'] ?? [],
             classId: studyProvider.savedClassId,
-
-            // 🔹 cleaner boolean handling (same logic)
-            isQuestionBankEnabled:
-            item['question_bank'] == true ||
-                item['question_bank'] == 1,
-
-            isQuestionsEnabled:
-            item['question'] == true ||
-                item['question'] == 1,
+            isQuestionBankEnabled: item['question_bank'] == true || item['question_bank'] == 1,
+            isQuestionsEnabled: item['question'] == true || item['question'] == 1,
+            isSamplePaperEnabled: item['sample_paper'] == true || item['sample_paper'] == 1,
           );
         },
       ),
     );
   }
 
-  // 🔹 Shimmer with responsive height
   Widget _buildShimmerLoading(double screenHeight) {
     return ListView.builder(
       itemCount: 5,
@@ -83,10 +74,7 @@ class _StudyState extends State<Study> {
           highlightColor: Colors.grey.shade100,
           child: Container(
             margin: const EdgeInsets.only(bottom: 20),
-
-            // 🔹 Responsive but visually same
             height: screenHeight * 0.22,
-
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(15),

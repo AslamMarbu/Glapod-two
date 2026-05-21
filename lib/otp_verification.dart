@@ -14,6 +14,8 @@ class OtpVerificationPage extends StatefulWidget {
   final String phone;
   final String password;
   final String device;
+  final String country; // Added
+  final String state;
 
   const OtpVerificationPage({
     super.key,
@@ -22,6 +24,8 @@ class OtpVerificationPage extends StatefulWidget {
     required this.phone,
     required this.password,
     required this.device,
+    required this.country, // Added
+    required this.state,
   });
 
   @override
@@ -102,6 +106,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
         password: widget.password,
         otp: otp,
         device: widget.device,
+        country: widget.country, // Add this!
+        state: widget.state,
       );
 
       if (response['status'] == true || response['status'] == "true") {
@@ -180,6 +186,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       phone: widget.phone,
       password: widget.password,
       device: widget.device,
+      country: widget.country, // Add this!
+      state: widget.state,
     );
 
     if (response['status'] == true) {
