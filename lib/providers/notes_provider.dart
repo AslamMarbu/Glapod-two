@@ -1,72 +1,58 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/student_service.dart';
-import '../utils/file_utils.dart'; // 🔹 Import your existing FileUtils
+import '../utils/file_utils.dart';
 
 class NotesProvider with ChangeNotifier {
-  List<dynamic> _notes = [];
-  bool _isLoading = true;
-  Map<int, bool> _downloadingStatus = {};
+  List<Map<String, dynamic>> _notes = [];
+  bool _isFetchingList = true;
+  final Map<String, bool> _loadingStatus = {};
 
-  List<dynamic> get notes => _notes;
-  bool get isLoading => _isLoading;
-  Map<int, bool> get downloadingStatus => _downloadingStatus;
+  List<Map<String, dynamic>> get notes => _notes;
+  bool get isFetchingList => _isFetchingList;
+  bool isLoading(String url) => _loadingStatus[url] ?? false;
 
-  Future<void> fetchNotes(dynamic chapterId) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _notes = await StudentService.fetchNotes(chapterId);
-    } catch (e) {
-      _notes = [];
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  /// Checks cache validity
+  Future<bool> isNoteValid(String url) async => (await FileUtils.getValidCache(url)) != null;
 
-  /// 🔹 Standardized Download Logic using FileUtils
-  Future<File?> downloadFile(dynamic note) async {
-    final String url = note['note_url'];
-    final int id = note['id'];
-
+  /// 🔹 CLEANED: Only handles UI state notification
+  Future<File?> downloadFile(String url) async {
     if (url.isEmpty || url == "null") return null;
 
-    _downloadingStatus[id] = true;
+    _loadingStatus[url] = true;
     notifyListeners();
 
     try {
-      // Use FileUtils: Checks if exists -> Downloads if not -> Returns local path
-      final String localPath = await FileUtils.downloadAndSave(url);
-
-      return File(localPath);
+      // Logic is now centralized
+      return await FileUtils.downloadFile(url);
     } catch (e) {
-      debugPrint("Download Error: $e");
       return null;
     } finally {
-      _downloadingStatus[id] = false;
+      _loadingStatus[url] = false;
       notifyListeners();
     }
   }
 
-  IconData getFaIcon(String iconClass) {
-    switch (iconClass) {
-      case 'fas fa-file-pdf': return FontAwesomeIcons.filePdf;
-      case 'fas fa-image': return FontAwesomeIcons.fileImage;
-      case 'fas fa-video':
-      case 'fas fa-file-video': return FontAwesomeIcons.fileVideo;
-      case 'fas fa-file-powerpoint': return FontAwesomeIcons.filePowerpoint;
-      default: return FontAwesomeIcons.fileLines;
-    }
-  }
+  Future<void> fetchNotes(dynamic chapterId) async {
+    _isFetchingList = true;
+    _notes = [];
+    notifyListeners();
 
-  Color getIconColor(String type) {
-    switch (type.toUpperCase()) {
-      case 'PDF': return Colors.red.shade700;
-      case 'IMAGE': return Colors.green.shade700;
-      case 'VIDEO': return Colors.blue.shade700;
-      default: return Colors.orange.shade700;
+    try {
+      final List<dynamic> rawData = await StudentService.fetchNotes(chapterId);
+
+      // 🔹 THE WEB BRIDGE: Destroys problematic JS pointers
+      final String bridge = jsonEncode(rawData);
+      final List<dynamic> cleanData = jsonDecode(bridge);
+
+      _notes = cleanData.map((item) => Map<String, dynamic>.from(item)).toList();
+    } catch (e) {
+      debugPrint("Provider Error: $e");
+    } finally {
+      _isFetchingList = false;
+      notifyListeners();
     }
   }
 }

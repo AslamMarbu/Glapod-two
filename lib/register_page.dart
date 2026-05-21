@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'services/auth_service.dart';
-import 'widgets.dart/gradient_button.dart';
-import 'utils/ui_utils.dart';
-import 'login.dart';
+import '../services/auth_service.dart';
+import '../widgets.dart/gradient_button.dart'; // Adjust path if necessary
+import '../utils/ui_utils.dart';
 import 'otp_verification.dart';
-import 'package:glapod/utils/device_utils.dart';
+import '../utils/device_utils.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -21,10 +20,26 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
-
-  // State for password visibility toggles
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  // --- NEW STATE FIELDS ---
+  String? _selectedCountry;
+  String? _selectedState;
+
+  final List<String> _countries = [
+    "India", "USA", "UK", "Canada", "Australia",
+    "Germany", "France", "UAE", "Singapore", "Japan",
+    "Brazil", "South Africa", "Italy", "Spain", "Mexico"
+  ];
+
+  final List<String> _indianStates = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+    "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+    "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+  ];
 
   final TextStyle hintStyle = const TextStyle(
     color: Colors.black54,
@@ -49,6 +64,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final String cpassword = _confirmPasswordController.text.trim();
     String device = await DeviceService.getDeviceId();
 
+    // Validation
     if (name.isEmpty) {
       Messenger.show(context, "Please enter your name", type: MessageType.error);
       return;
@@ -61,6 +77,17 @@ class _RegisterPageState extends State<RegisterPage> {
       Messenger.show(context, "Enter a valid 10-digit phone number", type: MessageType.error);
       return;
     }
+
+    // Country & State Validation
+    if (_selectedCountry == null) {
+      Messenger.show(context, "Please select your country", type: MessageType.error);
+      return;
+    }
+    if (_selectedCountry == "India" && _selectedState == null) {
+      Messenger.show(context, "Please select your state", type: MessageType.error);
+      return;
+    }
+
     if (password.length < 8) {
       Messenger.show(context, "Password must be at least 8 characters", type: MessageType.error);
       return;
@@ -79,6 +106,8 @@ class _RegisterPageState extends State<RegisterPage> {
         phone: phone,
         password: password,
         device: device,
+        country: _selectedCountry ?? "",
+        state: _selectedState ?? "", // Default to N/A for non-India
       );
 
       if (response['status'] == true) {
@@ -87,13 +116,20 @@ class _RegisterPageState extends State<RegisterPage> {
           displayMsg = "$displayMsg: ${response['otp']}";
         }
 
-        Messenger.show(context, displayMsg, type: MessageType.success,autoHide:false);
+        Messenger.show(context, displayMsg, type: MessageType.success, autoHide: false);
         if (mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => OtpVerificationPage(
-                name: name, email: email, phone: phone, password: password, device: device,
+                name: name,
+                email: email,
+                phone: phone,
+                password: password,
+                device: device,
+                country: _selectedCountry!, // Pass it forward
+                state: _selectedState ?? "", // Pass it forward
+                // Ensure OtpVerificationPage accepts country/state if needed
               ),
             ),
           );
@@ -108,7 +144,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  // Helper for TextFields (No prefix icons, includes content padding)
   Widget _buildTextField({
     required TextEditingController controller,
     required String hint,
@@ -117,9 +152,8 @@ class _RegisterPageState extends State<RegisterPage> {
     Widget? suffixIcon,
   }) {
     return Container(
-      // Force a solid white background with a shadow to "punch through" the image overlap
       decoration: BoxDecoration(
-        color: Colors.white, // Solid white
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -135,7 +169,7 @@ class _RegisterPageState extends State<RegisterPage> {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white, // Redundant but safe
+          fillColor: Colors.white,
           hintText: hint,
           hintStyle: hintStyle,
           suffixIcon: suffixIcon,
@@ -149,12 +183,48 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  Widget _buildDropdown({
+    required String hint,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          hint: Text(hint, style: hintStyle),
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+          items: items.map((String item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, style: const TextStyle(fontSize: 14)),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          /// BACKGROUND GRADIENT (Matches Login)
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -164,34 +234,14 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
           ),
-
-          /// TOP WAVE (Matches Login - Uses bot.jpeg)
           Positioned(
-            top: -400,
-            left: 0,
-            right: -60,
-            bottom: 490,
-            child: Image.asset(
-              "assets/images/bot.jpeg",
-              width: MediaQuery.of(context).size.width,
-              fit: BoxFit.cover,
-            ),
+            top: -400, left: 0, right: -60, bottom: 490,
+            child: Image.asset("assets/images/bot.jpeg", width: MediaQuery.of(context).size.width, fit: BoxFit.cover),
           ),
-
-          /// BOTTOM WAVE (Matches Login - Uses top.jpeg)
           Positioned(
-            bottom: -60,
-            left: -60,
-            right: -40,
-            top: 600,
-            child: Image.asset(
-              "assets/images/top.jpeg",
-              width: MediaQuery.of(context).size.width * 1.2,
-              fit: BoxFit.fill,
-            ),
+            bottom: -60, left: -60, right: -40, top: 600,
+            child: Image.asset("assets/images/top.jpeg", width: MediaQuery.of(context).size.width * 1.2, fit: BoxFit.fill),
           ),
-
-          /// MAIN CONTENT
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -199,29 +249,18 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    /// LOGO + TITLE
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Image.asset('assets/images/logoo.png', height: 45),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Glapod',
-                          style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                        ),
+                        const Text('Glapod', style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
                       ],
                     ),
-
                     const SizedBox(height: 25),
-                    const Text(
-                      'Create Account',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                    ),
+                    const Text('Create Account', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Register to start learning',
-                      style: TextStyle(fontSize: 15, color: Colors.black54),
-                    ),
+                    const Text('Register to start learning', style: TextStyle(fontSize: 15, color: Colors.black54)),
                     const SizedBox(height: 25),
 
                     _buildTextField(controller: _nameController, hint: 'Enter your name'),
@@ -231,35 +270,50 @@ class _RegisterPageState extends State<RegisterPage> {
                     _buildTextField(controller: _phoneController, hint: 'Enter phone number', keyboardType: TextInputType.phone),
                     const SizedBox(height: 15),
 
-                    // Password with Eye Icon
+                    // --- COUNTRY DROPDOWN ---
+                    _buildDropdown(
+                      hint: 'Select Country',
+                      value: _selectedCountry,
+                      items: _countries,
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedCountry = val;
+                          _selectedState = null; // Clear state if country changes
+                        });
+                      },
+                    ),
+
+                    // --- CONDITIONAL STATE DROPDOWN ---
+                    if (_selectedCountry == "India") ...[
+                      const SizedBox(height: 15),
+                      _buildDropdown(
+                        hint: 'Select State',
+                        value: _selectedState,
+                        items: _indianStates,
+                        onChanged: (val) => setState(() => _selectedState = val),
+                      ),
+                    ],
+
+                    const SizedBox(height: 15),
                     _buildTextField(
                       controller: _passwordController,
                       hint: 'Enter password',
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
-                        icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                            color: AppColors.darkGrey
-                        ),
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
                     const SizedBox(height: 15),
-
-                    // Confirm Password with Eye Icon
                     _buildTextField(
                       controller: _confirmPasswordController,
                       hint: 'Confirm password',
                       obscureText: _obscureConfirmPassword,
                       suffixIcon: IconButton(
-                        icon: Icon(
-                            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                            color: AppColors.darkGrey
-                        ),
+                        icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
                         onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                       ),
                     ),
-
                     const SizedBox(height: 25),
                     SizedBox(
                       width: double.infinity, height: 55,
@@ -276,10 +330,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         const Text("Already have an account? ", style: TextStyle(fontSize: 16, color: Colors.black54)),
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
-                          child: const Text(
-                            "Log in",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6BCF2E)),
-                          ),
+                          child: const Text("Log in", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6BCF2E))),
                         ),
                       ],
                     ),

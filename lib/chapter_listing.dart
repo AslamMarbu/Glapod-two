@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // 🔹 Added for caching
 import 'package:glapod/utils/app_colors.dart';
 import 'widgets.dart/appbar_page.dart';
 import 'video_listing.dart';
@@ -144,7 +145,7 @@ class _ChapterAccordionItemState
                 crossAxisAlignment:
                 CrossAxisAlignment.start,
                 children: [
-                  // Image
+                  // Image Section
                   Expanded(
                     flex: 5,
                     child: ClipRRect(
@@ -154,20 +155,34 @@ class _ChapterAccordionItemState
                           widget.chapter['image']
                               .toString()
                               .isNotEmpty
-                          ? Image.network(
-                        widget.chapter['image'],
+                      // 🔹 REPLACED Image.network with CachedNetworkImage
+                          ? CachedNetworkImage(
+                        imageUrl: widget.chapter['image'],
                         fit: BoxFit.cover,
                         height: imageHeight,
-                        errorBuilder:
-                            (context, error, stackTrace) =>
-                            Container(
-                              height: imageHeight,
-                              color: Colors.white10,
-                              child: const Icon(
-                                Icons.image_not_supported,
-                                color: Colors.white,
+                        width: double.infinity,
+                        placeholder: (context, url) => Container(
+                          height: imageHeight,
+                          color: Colors.white10,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white70,
                               ),
                             ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          height: imageHeight,
+                          color: Colors.white10,
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.white,
+                          ),
+                        ),
                       )
                           : Container(
                         height: imageHeight,
@@ -182,7 +197,7 @@ class _ChapterAccordionItemState
 
                   SizedBox(width: width * 0.03),
 
-                  // Buttons
+                  // Buttons Section
                   Expanded(
                     flex: 6,
                     child: Column(
@@ -248,7 +263,7 @@ class _ChapterAccordionItemState
 
                   SizedBox(width: width * 0.02),
 
-                  // Video Button
+                  // Video Button Section
                   _buildVideoCircle(
                     context,
                     isEnabled:

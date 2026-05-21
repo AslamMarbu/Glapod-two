@@ -8,15 +8,21 @@ class YearwiseQPaperProvider with ChangeNotifier {
   List<dynamic> _paperSets = [];
   bool _isLoading = true;
 
+  // 🔹 Track loading status by URL to show individual spinners
   final Map<String, bool> _downloadingStatus = {};
-  final Set<String> _downloadedUrls = {}; // 🔹 Track locally available files
 
   List<dynamic> get paperSets => _paperSets;
   bool get isLoading => _isLoading;
-  Map<String, bool> get downloadingStatus => _downloadingStatus;
 
-  // 🔹 Helper to check status in UI
-  bool isFileDownloaded(String url) => _downloadedUrls.contains(url);
+  /// 🔹 Helper for the UI to check downloading state
+  bool isDownloading(String url) => _downloadingStatus[url] ?? false;
+
+  /// 🔹 Standardized: Checks if the file is in cache and valid (< 2 days old)
+  Future<bool> isPaperDownloaded(String url) async {
+    if (url.isEmpty || url == "null") return false;
+    final file = await FileUtils.getValidCache(url);
+    return file != null;
+  }
 
   Future<void> fetchSets(String subjectId, String year) async {
     _isLoading = true;
@@ -24,16 +30,8 @@ class YearwiseQPaperProvider with ChangeNotifier {
     try {
       final result = await _service.fetchPaperSets(subjectId, year);
       _paperSets = result ?? [];
-
-      // 🔹 Check existing files on disk immediately
-      for (var paper in _paperSets) {
-        String url = paper['file_url'] ?? "";
-        if (url.isNotEmpty && await FileUtils.fileExists(url)) {
-          _downloadedUrls.add(url);
-        }
-      }
     } catch (e) {
-      debugPrint("Error: $e");
+      debugPrint("Error fetching paper sets: $e");
       _paperSets = [];
     } finally {
       _isLoading = false;
@@ -41,22 +39,18 @@ class YearwiseQPaperProvider with ChangeNotifier {
     }
   }
 
+  /// 🔹 Cleaned: Uses the centralized download logic
   Future<File?> downloadPaper(String url) async {
-    if (url.isEmpty) return null;
+    if (url.isEmpty || url == "null") return null;
 
     _downloadingStatus[url] = true;
     notifyListeners();
 
     try {
-      final String localPath = await FileUtils.downloadAndSave(url);
-      final file = File(localPath);
-
-      if (await file.exists()) {
-        _downloadedUrls.add(url); // 🔹 Mark as downloaded for the UI
-        return file;
-      }
-      return null;
+      // 🔹 Centralized logic handles MD5 hashing, 2-day expiry, and download
+      return await FileUtils.downloadFile(url);
     } catch (e) {
+      debugPrint("Download error: $e");
       return null;
     } finally {
       _downloadingStatus[url] = false;

@@ -4,7 +4,7 @@ import '../storage/local_storage_service.dart';
 
 class StudyProvider with ChangeNotifier {
   List<dynamic> _subjects = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
   String _savedClassId = '';
 
   // Getters
@@ -13,20 +13,24 @@ class StudyProvider with ChangeNotifier {
   String get savedClassId => _savedClassId;
 
   Future<void> loadSubjects() async {
-    _isLoading = true;
-    notifyListeners(); // Tell the UI to show the loading spinner
-
     try {
+      _isLoading = true;
+      notifyListeners();
+
+      // 1. Fetch Class ID from Local Storage
       final studentData = await LocalStorageService.getStudent();
       _savedClassId = studentData?['class_id']?.toString() ?? "3";
 
-      _subjects = await StudentService.fetchSubjects(_savedClassId);
+      // 2. Fetch data from the API
+      // (The Dio Interceptor will handle the cache behind the scenes)
+      final List<dynamic> freshData = await StudentService.fetchSubjects(_savedClassId);
+
+      _subjects = freshData;
     } catch (e) {
-      debugPrint("Error loading subjects: $e");
-      _subjects = [];
+      debugPrint("Error in loadSubjects: $e");
     } finally {
       _isLoading = false;
-      notifyListeners(); // Tell UI to rebuild with data
+      notifyListeners();
     }
   }
 }

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // 🔹 Essential for caching
 import 'package:glapod/questions_page.dart';
-import 'package:glapod/utils/app_colors.dart';
-import 'subject_circular_icon.dart';
 import 'package:glapod/chapter_listing.dart';
 import 'package:glapod/question_bank.dart';
 import 'package:glapod/textbook_listing_page.dart';
 import 'package:glapod/sample_papers_page.dart';
+import 'subject_circular_icon.dart';
 
-class SubjectCard extends StatelessWidget {
+class SubjectCard extends StatefulWidget {
   final String subjectId;
   final String? syllabusUrl;
   final String? textbookUrl;
@@ -19,6 +19,7 @@ class SubjectCard extends StatelessWidget {
 
   final bool isQuestionBankEnabled;
   final bool isQuestionsEnabled;
+  final bool isSamplePaperEnabled;
 
   const SubjectCard({
     super.key,
@@ -32,19 +33,27 @@ class SubjectCard extends StatelessWidget {
     this.imageUrl,
     this.isQuestionBankEnabled = true,
     this.isQuestionsEnabled = true,
+    this.isSamplePaperEnabled = true,
   });
 
+  @override
+  State<SubjectCard> createState() => _SubjectCardState();
+}
+
+class _SubjectCardState extends State<SubjectCard> {
+  bool _isExpanded = false;
+
   void _handleNavigation(BuildContext context) {
-    if (chapters == null || chapters!.isEmpty) {
+    if (widget.chapters == null || widget.chapters!.isEmpty) {
       _showNoChaptersSnackBar(context);
     } else {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => SubjectDetailPage(
-            subjectId: subjectId,
-            subjectName: subjectName,
-            chapters: chapters!,
+            subjectId: widget.subjectId,
+            subjectName: widget.subjectName,
+            chapters: widget.chapters!,
           ),
         ),
       );
@@ -64,13 +73,8 @@ class SubjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔹 Responsive values (safe scaling)
-    final width = MediaQuery.of(context).size.width;
-    final imageWidth = width * 0.25;   // ~100 on normal phones
-    final imageHeight = width * 0.38;  // keeps same ratio feel
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
@@ -83,156 +87,138 @@ class SubjectCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- HEADER ---
+          // 1. HEADER BANNER (With Image Caching)
           InkWell(
             onTap: () => _handleNavigation(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 15, 20, 5),
-              child: Row(
-                children: [
-                  // 🔹 Prevent overflow for long names
-                  Expanded(
-                    child: Text(
-                      subjectName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textHeadingBlack,
-                      ),
-                    ),
+            borderRadius: BorderRadius.circular(25),
+            child: Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(25),
+                image: (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
+                    ? DecorationImage(
+                  // 🔹 Using Provider here to work inside BoxDecoration
+                  image: CachedNetworkImageProvider(widget.imageUrl!),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    Colors.black.withOpacity(0.3),
+                    BlendMode.darken,
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: Colors.blue,
-                  ),
-                ],
+                )
+                    : null,
+                color: Colors.grey.shade200,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                widget.subjectName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                        blurRadius: 8,
+                        color: Colors.black54,
+                        offset: Offset(2, 2)
+                    )
+                  ],
+                ),
               ),
             ),
           ),
 
-          const Divider(
-            thickness: 1.0,
-            indent: 20,
-            endIndent: 20,
-            color: Color(0xFFF5F5F5),
+          // 2. ACCORDION TRIGGER BAR
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  _isExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: Colors.grey,
+                  size: 28,
+                ),
+              ),
+            ),
           ),
 
-          // --- CONTENT ---
-          Padding(
-            padding: const EdgeInsets.only(bottom: 15, top: 5),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 🔹 Image
-                InkWell(
-                  onTap: () => _handleNavigation(context),
-                  borderRadius: BorderRadius.circular(15),
-                  child: Container(
-                    width: imageWidth,
-                    height: imageHeight,
-                    margin: const EdgeInsets.only(left: 20, right: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(15),
-                      image: (imageUrl != null && imageUrl!.isNotEmpty)
-                          ? DecorationImage(
-                        image: NetworkImage(imageUrl!),
-                        fit: BoxFit.cover,
-                      )
-                          : null,
-                    ),
-                    child: (imageUrl == null || imageUrl!.isEmpty)
-                        ? Icon(
-                      Icons.image,
-                      color: Colors.grey.shade300,
-                      size: 30,
+          // 3. EXPANDABLE CONTENT
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 15, 20),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 15,
+                children: [
+                  CircularIconButton(
+                    icon: Icons.menu_book_rounded,
+                    label: "Textbook",
+                    backgroundColor: const Color(0xFF4DB6AC),
+                    isEnabled: widget.textbooksList.isNotEmpty,
+                    page: widget.textbooksList.isNotEmpty
+                        ? TextbookListingPage(
+                      subjectName: widget.subjectName,
+                      textbooks: widget.textbooksList,
                     )
                         : null,
                   ),
-                ),
-
-                // 🔹 Grid
-                Expanded(
-                  child: GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: 0.75,
-                    children: [
-                      CircularIconButton(
-                        icon: Icons.menu_book_rounded,
-                        label: "Textbook",
-                        backgroundColor: const Color(0xFF4DB6AC),
-                        isEnabled: textbooksList.isNotEmpty,
-                        page: textbooksList.isNotEmpty
-                            ? TextbookListingPage(
-                          subjectName: subjectName,
-                          textbooks: textbooksList,
-                        )
-                            : null,
-                      ),
-                      CircularIconButton(
-                        icon: Icons.assignment_outlined,
-                        label: "Syllabus",
-                        backgroundColor: const Color(0xFF9575CD),
-                        isEnabled: syllabusUrl != null &&
-                            syllabusUrl!.isNotEmpty &&
-                            syllabusUrl != "null",
-                        url: syllabusUrl,
-                      ),
-                      CircularIconButton(
-                        icon: Icons.quiz_outlined,
-                        label: "Practice",
-                        backgroundColor: const Color(0xFFFF8A65),
-                        isEnabled: isQuestionBankEnabled,
-                        page: isQuestionBankEnabled
-                            ? SamplePapersPage(
-                          subjectId: subjectId,
-                          subjectName: subjectName,
-                          classId: classId,
-                        )
-                            : null,
-                      ),
-                      CircularIconButton(
-                        icon: Icons.help_outline_rounded,
-                        label: "Questions",
-                        backgroundColor: const Color(0xFF64B5F6),
-                        isEnabled: isQuestionsEnabled,
-                        page: isQuestionsEnabled
-                            ? QuestionsPage(
-                          subjectId: subjectId,
-                          subjectName: subjectName,
-                        )
-                            : null,
-                      ),
-                      CircularIconButton(
-                        icon: Icons.quiz_outlined,
-                        label: "Q Bank",
-                        backgroundColor: const Color(0xFFA29BFE),
-                        isEnabled: isQuestionBankEnabled,
-                        page: isQuestionBankEnabled
-                            ? QuestionBankPage(
-                          subjectId: subjectId,
-                          subjectName: subjectName,
-                          classId: classId,
-                        )
-                            : null,
-                      ),
-                    ],
+                  CircularIconButton(
+                    icon: Icons.assignment_outlined,
+                    label: "Syllabus",
+                    backgroundColor: const Color(0xFF9575CD),
+                    isEnabled: widget.syllabusUrl != null &&
+                        widget.syllabusUrl!.isNotEmpty &&
+                        widget.syllabusUrl != "null",
+                    url: widget.syllabusUrl,
                   ),
-                ),
-
-                const SizedBox(width: 10),
-              ],
+                  CircularIconButton(
+                    icon: Icons.quiz_outlined,
+                    label: "Practice",
+                    backgroundColor: const Color(0xFFFF8A65),
+                    isEnabled: widget.isSamplePaperEnabled,
+                    page: widget.isSamplePaperEnabled
+                        ? SamplePapersPage(
+                      subjectId: widget.subjectId,
+                      subjectName: widget.subjectName,
+                      classId: widget.classId,
+                    )
+                        : null,
+                  ),
+                  CircularIconButton(
+                    icon: Icons.help_outline_rounded,
+                    label: "Questions",
+                    backgroundColor: const Color(0xFF64B5F6),
+                    isEnabled: widget.isQuestionsEnabled,
+                    page: widget.isQuestionsEnabled
+                        ? QuestionsPage(
+                      subjectId: widget.subjectId,
+                      subjectName: widget.subjectName,
+                    )
+                        : null,
+                  ),
+                  CircularIconButton(
+                    icon: Icons.quiz_outlined,
+                    label: "Q Bank",
+                    backgroundColor: const Color(0xFFA29BFE),
+                    isEnabled: widget.isQuestionBankEnabled,
+                    page: widget.isQuestionBankEnabled
+                        ? QuestionBankPage(
+                      subjectId: widget.subjectId,
+                      subjectName: widget.subjectName,
+                      classId: widget.classId,
+                    )
+                        : null,
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

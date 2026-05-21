@@ -13,6 +13,8 @@ class AuthService {
     required String phone,
     required String password,
     required String device,
+    required String country, // New Field
+    required String state,   // New Field
   }) async {
     final url = Uri.parse('$baseUrl/api/student/register/otp');
     try {
@@ -25,6 +27,8 @@ class AuthService {
           "phone": phone,
           "password": password,
           "device_info": device,
+          "country": country, // Pass to API
+          "state": state,     // Pass to API
         }),
       );
       return jsonDecode(response.body);
@@ -40,6 +44,8 @@ class AuthService {
     required String password,
     required String otp,
     required String device,
+    required String country, // New Field
+    required String state,   // New Field
   }) async {
     final url = Uri.parse('$baseUrl/api/student/register/verification');
     try {
@@ -53,6 +59,8 @@ class AuthService {
           "password": password,
           "otp": otp,
           "device_info": device,
+          "country": country, // Pass to API
+          "state": state,
         }),
       );
       return jsonDecode(response.body);
