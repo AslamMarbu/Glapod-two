@@ -10,14 +10,14 @@ import 'viewers/ppt_viewer_page.dart';
 import 'widgets.dart/document_card.dart';
 import 'dart:convert';
 
-<<<<<<< HEAD
-class NotesListingPage extends StatelessWidget {
-  const NotesListingPage({super.key});
-=======
 class NotesListingPage extends StatefulWidget {
   final dynamic chapterId;
   final String chapterTitle;
-  const NotesListingPage({super.key, required this.chapterId, required this.chapterTitle});
+  const NotesListingPage({
+    super.key,
+    required this.chapterId,
+    required this.chapterTitle,
+  });
 
   @override
   State<NotesListingPage> createState() => _NotesListingPageState();
@@ -28,12 +28,15 @@ class _NotesListingPageState extends State<NotesListingPage> {
   void initState() {
     super.initState();
     // Microtask ensures the fetch doesn't conflict with the initial build frame
-    Future.microtask(() =>
-        context.read<NotesProvider>().fetchNotes(widget.chapterId)
+    Future.microtask(
+      () => context.read<NotesProvider>().fetchNotes(widget.chapterId),
     );
   }
 
-  Future<void> _onFileTap(NotesProvider provider, Map<String, dynamic> note) async {
+  Future<void> _onFileTap(
+    NotesProvider provider,
+    Map<String, dynamic> note,
+  ) async {
     // Standardizing extraction to prevent Web/JS crashes
     final String url = (note['note_url'] ?? "").toString();
     final String title = (note['title'] ?? "Study Material").toString();
@@ -44,9 +47,12 @@ class _NotesListingPageState extends State<NotesListingPage> {
 
     // 1. Handle PPTs through the specialized web viewer
     if (ext.contains('ppt')) {
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => PptWebViewer(url: url, title: title),
-      ));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PptWebViewer(url: url, title: title),
+        ),
+      );
       return;
     }
 
@@ -71,7 +77,6 @@ class _NotesListingPageState extends State<NotesListingPage> {
       Navigator.push(context, MaterialPageRoute(builder: (_) => destination!));
     }
   }
->>>>>>> 344bf543fba68c7728f97fb5e7e81d6f051003b9
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +85,11 @@ class _NotesListingPageState extends State<NotesListingPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1FAF2),
-      appBar: CustomAppBar(height: 40, title: widget.chapterTitle, isDashboard: false),
+      appBar: CustomAppBar(
+        height: 40,
+        title: widget.chapterTitle,
+        isDashboard: false,
+      ),
       body: _buildBody(notesProvider),
     );
   }
@@ -97,32 +106,33 @@ class _NotesListingPageState extends State<NotesListingPage> {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: provider.notes.length,
-        // Inside your ListView.builder in NotesListingPage
-        itemBuilder: (context, index) {
-          if (index >= provider.notes.length) return const SizedBox.shrink();
+      // Inside your ListView.builder in NotesListingPage
+      itemBuilder: (context, index) {
+        if (index >= provider.notes.length) return const SizedBox.shrink();
 
-          final Map<String, dynamic> note = provider.notes[index];
+        final Map<String, dynamic> note = provider.notes[index];
 
-          // 🔹 Bypassing the [] operator to prevent the JS Symbol crash
-          String noteUrl = "";
-          String noteTitle = "";
+        // 🔹 Bypassing the [] operator to prevent the JS Symbol crash
+        String noteUrl = "";
+        String noteTitle = "";
 
-          // Using .entries is safer on Web than note['note_url']
-          for (var entry in note.entries) {
-            if (entry.key == 'note_url') noteUrl = entry.value.toString();
-            if (entry.key == 'title') noteTitle = entry.value.toString();
-          }
-
-          if (noteUrl.isEmpty || noteUrl == "null") return const SizedBox.shrink();
-
-          return DocumentCard(
-            title: noteTitle.isEmpty ? "Material Part ${index + 1}" : noteTitle,
-            subtitle: "Study Material",
-            isDownloading: provider.isLoading(noteUrl),
-            isDownloadedFuture: provider.isNoteValid(noteUrl),
-            onTap: () => _onFileTap(provider, note),
-          );
+        // Using .entries is safer on Web than note['note_url']
+        for (var entry in note.entries) {
+          if (entry.key == 'note_url') noteUrl = entry.value.toString();
+          if (entry.key == 'title') noteTitle = entry.value.toString();
         }
+
+        if (noteUrl.isEmpty || noteUrl == "null")
+          return const SizedBox.shrink();
+
+        return DocumentCard(
+          title: noteTitle.isEmpty ? "Material Part ${index + 1}" : noteTitle,
+          subtitle: "Study Material",
+          isDownloading: provider.isLoading(noteUrl),
+          isDownloadedFuture: provider.isNoteValid(noteUrl),
+          onTap: () => _onFileTap(provider, note),
+        );
+      },
     );
   }
 
@@ -136,7 +146,8 @@ class _NotesListingPageState extends State<NotesListingPage> {
           highlightColor: Colors.grey[100]!,
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
-            height: 72, // Matches the DocumentCard height for a smooth transition
+            height:
+                72, // Matches the DocumentCard height for a smooth transition
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(15),
