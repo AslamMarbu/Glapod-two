@@ -45,20 +45,34 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // --- 1. Email Validations ---
     if (email.isEmpty) {
-      Messenger.show(context, "Please enter your email", type: MessageType.error);
+      Messenger.show(
+        context,
+        "Please enter your email",
+        type: MessageType.error,
+      );
       return;
     }
 
     // Regex for standard email format
-    bool isEmailValid = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+    bool isEmailValid = RegExp(
+      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+    ).hasMatch(email);
     if (!isEmailValid) {
-      Messenger.show(context, "Please enter a valid email address", type: MessageType.error);
+      Messenger.show(
+        context,
+        "Please enter a valid email address",
+        type: MessageType.error,
+      );
       return;
     }
 
     // --- 2. Password Validations ---
     if (password.isEmpty) {
-      Messenger.show(context, "Please enter your password", type: MessageType.error);
+      Messenger.show(
+        context,
+        "Please enter your password",
+        type: MessageType.error,
+      );
       return;
     }
 
@@ -69,7 +83,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final response = await AuthService.loginAuth(
         email: email,
         password: password,
-        deviceId: deviceId
+        deviceId: deviceId,
       );
 
       if (response['status'] == true) {
@@ -80,7 +94,8 @@ class _MyHomePageState extends State<MyHomePage> {
           studentData: student,
         );
 
-        final LicenseStatus status = await LocalStorageService.getLicenseStatus();
+        final LicenseStatus status =
+            await LocalStorageService.getLicenseStatus();
 
         if (!mounted) return;
 
@@ -105,14 +120,22 @@ class _MyHomePageState extends State<MyHomePage> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => nextPage),
-              (route) => false,
+          (route) => false,
         );
       } else {
-        Messenger.show(context, response['message'] ?? "Login failed", type: MessageType.error);
+        Messenger.show(
+          context,
+          response['message'] ?? "Login failed",
+          type: MessageType.error,
+        );
       }
     } catch (e) {
       debugPrint("Login Error: $e");
-      Messenger.show(context, "Something went wrong. Please try again.", type: MessageType.error);
+      Messenger.show(
+        context,
+        "Something went wrong. Please try again.",
+        type: MessageType.error,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -174,18 +197,16 @@ class _MyHomePageState extends State<MyHomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.asset(
-                          'assets/images/logoo.png',
-                          height: 60,
-                        ),
-                        const SizedBox(width: 2), const Text(
-                        'EdMaster',
-                        style: TextStyle(
-                        fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        Image.asset('assets/images/logoo.png', height: 60),
+                        const SizedBox(width: 2),
+                        const Text(
+                          'EdMaster',
+                          style: TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
-                         ),
+                        ),
                       ],
                     ),
 
@@ -250,7 +271,9 @@ class _MyHomePageState extends State<MyHomePage> {
                         // Black eye toggle added here
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: AppColors.darkGrey,
                           ),
                           onPressed: () {
@@ -337,7 +360,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const ForgotPasswordPage(),
+                                builder: (context) =>
+                                    const ForgotPasswordPage(),
                               ),
                             );
                           },

@@ -14,7 +14,7 @@ class AuthService {
     required String password,
     required String device,
     required String country, // New Field
-    required String state,   // New Field
+    required String state, // New Field
   }) async {
     final url = Uri.parse('$baseUrl/api/student/register/otp');
     try {
@@ -28,7 +28,7 @@ class AuthService {
           "password": password,
           "device_info": device,
           "country": country, // Pass to API
-          "state": state,     // Pass to API
+          "state": state, // Pass to API
         }),
       );
       return jsonDecode(response.body);
@@ -45,7 +45,7 @@ class AuthService {
     required String otp,
     required String device,
     required String country, // New Field
-    required String state,   // New Field
+    required String state, // New Field
   }) async {
     final url = Uri.parse('$baseUrl/api/student/register/verification');
     try {
@@ -73,7 +73,7 @@ class AuthService {
   static Future<Map<String, dynamic>> loginAuth({
     required String email,
     required String password,
-    required String deviceId
+    required String deviceId,
   }) async {
     final url = Uri.parse('$baseUrl/api/student/login');
     try {
@@ -108,10 +108,7 @@ class AuthService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          "purchase_key": key,
-          "device_info": deviceId,
-        }),
+        body: jsonEncode({"purchase_key": key, "device_info": deviceId}),
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -119,10 +116,15 @@ class AuthService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {
           "success": responseData['status'] == true,
-          "message": responseData['popup'] != null ? responseData['popup']['message'] : "",
+          "message": responseData['popup'] != null
+              ? responseData['popup']['message']
+              : "",
         };
       } else {
-        return {"success": false, "message": responseData['message'] ?? "Invalid key"};
+        return {
+          "success": false,
+          "message": responseData['message'] ?? "Invalid key",
+        };
       }
     } catch (e) {
       return {"success": false, "message": "Network error"};
@@ -145,10 +147,7 @@ class AuthService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          "purchase_key": key,
-          "device_info": deviceId,
-        }),
+        body: jsonEncode({"purchase_key": key, "device_info": deviceId}),
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -162,7 +161,9 @@ class AuthService {
   }
 
   // --- Password Recovery ---
-  static Future<Map<String, dynamic>> forgotPasswordRequest({required String email}) async {
+  static Future<Map<String, dynamic>> forgotPasswordRequest({
+    required String email,
+  }) async {
     final url = Uri.parse('$baseUrl/api/student/forgot-password');
     try {
       final response = await http.post(
@@ -185,10 +186,7 @@ class AuthService {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": email,
-          "otp": otp,
-        }),
+        body: jsonEncode({"email": email, "otp": otp}),
       );
       return jsonDecode(response.body);
     } catch (e) {
