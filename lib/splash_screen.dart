@@ -8,6 +8,7 @@ import 'storage/local_storage_service.dart';
 import 'services/student_service.dart';
 import 'activate_continue_page.dart';
 import 'profile.dart';
+import 'package:lottie/lottie.dart';
 
 class SplashScreen extends StatefulWidget {
   final bool isLoggedIn;
@@ -82,54 +83,94 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFE5F3FF), Color(0xFFE9FFE9)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+      backgroundColor: const Color(0xFFF5F7FB),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF2563EB), Color(0xFF3B82F6), Color(0xFF60A5FA)],
           ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              const Spacer(),
 
-          // Wave Images
-          Positioned(
-            top: -400, left: 0, right: -60, bottom: 490,
-            child: Image.asset("assets/images/bot.jpeg", fit: BoxFit.cover),
-          ),
-          Positioned(
-            bottom: -60, left: -60, right: -40, top: 600,
-            child: Image.asset("assets/images/top.jpeg", fit: BoxFit.fill),
-          ),
-
-          // Logo and Loading
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Displaying your updated logo.jpeg
-                // Width increased to 250 to make the text in the logo readable
-                Image.asset('assets/images/logo.jpeg', width: 250),
-
-                const SizedBox(height: 30),
-
-                // Subtle loader during API sync
-                if (_isSyncing)
-                  const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1B75BB)),
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(0), // reduce for larger logo
+                  child: Image.asset(
+                    "assets/images/logo.png",
+                    fit: BoxFit.contain,
                   ),
-              ],
-            ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                "EdMaster",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              const Text(
+                "Learn • Practice • Achieve",
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+
+              const SizedBox(height: 40),
+
+              Lottie.asset("assets/animations/loading.json", height: 180),
+
+              const SizedBox(height: 15),
+
+              AnimatedOpacity(
+                opacity: _isSyncing ? 1 : 0.8,
+                duration: const Duration(milliseconds: 500),
+                child: Text(
+                  _isSyncing ? "Preparing your lessons..." : "Welcome Back",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+              const Spacer(),
+
+              const Padding(
+                padding: EdgeInsets.only(bottom: 25),
+                child: Text(
+                  "Powered by Glapod Tech",
+                  style: TextStyle(color: Colors.white60, fontSize: 13),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

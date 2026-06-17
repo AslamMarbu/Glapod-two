@@ -60,7 +60,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => StudyProvider()),
-     //   ChangeNotifierProvider(create: (_) => ChapterProvider()), // Add this
+        //   ChangeNotifierProvider(create: (_) => ChapterProvider()), // Add this
         ChangeNotifierProvider(create: (_) => NotesProvider()),
         ChangeNotifierProvider(create: (_) => VideoProvider()),
         ChangeNotifierProvider(create: (_) => QuestionProvider()),
@@ -76,7 +76,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => TextbookProvider()),
         ChangeNotifierProvider(create: (_) => YearwiseQPaperProvider()),
         ChangeNotifierProvider(create: (_) => SolvedPaperSetProvider()),
-
       ],
       child: MyApp(initialPage: startPage, isLoggedIn: isLoggedIn),
     ),
