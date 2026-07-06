@@ -13,10 +13,21 @@ class Study extends StatefulWidget {
 }
 
 class _StudyState extends State<Study> {
+  // Keeps track of which subject card is currently expanded (-1 means none)
+  int _expandedIndex = -1;
+
+  final List<Color> _subjectPalette = [
+    const Color.fromARGB(255, 92, 95, 239), // Indigo
+    const Color(0xFF10B981), // Emerald Green
+    const Color(0xFFEC4899), // Pink
+    const Color(0xFFF59E0B), // Amber Yellow
+    const Color.fromARGB(255, 111, 14, 255), // Deep Orange
+    const Color.fromARGB(255, 17, 248, 252), // Cyan
+  ];
+
   @override
   void initState() {
     super.initState();
-    // Use addPostFrameCallback to trigger the logic after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StudyProvider>().loadSubjects();
     });
@@ -39,28 +50,60 @@ class _StudyState extends State<Study> {
           : studyProvider.subjects.isEmpty
           ? const Center(child: Text("No subjects available"))
           : ListView.builder(
-        itemCount: studyProvider.subjects.length,
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        itemBuilder: (context, index) {
-          final item = studyProvider.subjects[index];
-          return SubjectCard(
-            subjectId: item['id'].toString(),
-            subjectName: item["subject"],
-            imageUrl: item['image_url'],
-            syllabusUrl: item['syllabus_url'],
-            textbooksList: item['textbooks_url'] ?? [],
-            textbookUrl: (item['textbooks_url'] != null &&
-                item['textbooks_url'].isNotEmpty)
-                ? item['textbooks_url'][0]['file']
-                : null,
-            chapters: item['chapters'] ?? [],
-            classId: studyProvider.savedClassId,
-            isQuestionBankEnabled: item['question_bank'] == true || item['question_bank'] == 1,
-            isQuestionsEnabled: item['question'] == true || item['question'] == 1,
-            isSamplePaperEnabled: item['sample_paper'] == true || item['sample_paper'] == 1,
-          );
-        },
-      ),
+              itemCount: studyProvider.subjects.length,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              itemBuilder: (context, index) {
+                final item = studyProvider.subjects[index];
+                final String subjectName = item["subject"] ?? "";
+                final Color assignedColor =
+                    _subjectPalette[index % _subjectPalette.length];
+
+                return SubjectCard(
+                  subjectId: item['id'].toString(),
+                  subjectName: subjectName,
+                  imageUrl: item['image_url'],
+                  syllabusUrl: item['syllabus_url'],
+                  textbooksList: item['textbooks_url'] ?? [],
+                  textbookUrl:
+                      (item['textbooks_url'] != null &&
+                          item['textbooks_url'].isNotEmpty)
+                      ? item['textbooks_url'][0]['file']
+                      : null,
+                  chapters: item['chapters'] ?? [],
+                  classId: studyProvider.savedClassId,
+                  primaryColor: assignedColor,
+                  isQuestionBankEnabled:
+                      item['question_bank'] == true ||
+                      item['question_bank'] == 1,
+                  isQuestionsEnabled:
+                      item['question'] == true || item['question'] == 1,
+                  isSamplePaperEnabled:
+                      item['sample_paper'] == true || item['sample_paper'] == 1,
+
+                  // 1. Pass down whether this specific card should be open
+                  isInitiallyExpanded: _expandedIndex == index,
+
+                  // 2. Wire up the slide expansion logic toggle
+                  onExpansionChanged: (isExpanded) {
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedIndex =
+                            index; // Open this card and close others
+                      } else {
+                        _expandedIndex = -1; // Collapse if clicked again
+                      }
+                    });
+                  },
+
+                  // 3. Clear expansion selection on navigating away
+                  onNavigateToChapters: () {
+                    setState(() {
+                      _expandedIndex = -1;
+                    });
+                  },
+                );
+              },
+            ),
     );
   }
 

@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   file_selector_windows
   flutter_inappwebview_windows
+  flutter_tts
   pdfx
   share_plus
   speech_to_text_windows

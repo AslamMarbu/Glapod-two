@@ -12,31 +12,48 @@ class GamesZonePage extends StatefulWidget {
 
 class _GamesZonePageState extends State<GamesZonePage> {
   final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isMuted = false; // 1. Added mute state tracker
 
+  // Updated layout mapping with rich gradients and crisp contrasting colors matching image_93451d.png
   final List<Map<String, dynamic>> games = [
     {
       "title": "Color Fill",
       "subtitle": "Fun coloring game for kids",
-      "image": "assets/images/colorfill.jpeg",
+      "image": "assets/images/color_fill.png",
       "score": 120,
-      "stars": 4,
-      "colors": [const Color(0xFFFF9966), const Color(0xFFFF5E62)],
+      "stars": 5,
+      "gradient": const LinearGradient(
+        colors: [Color(0xFFFFC64B), Color(0xFFE88905)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      "btnIconColor": const Color(0xFFE88905),
     },
     {
       "title": "Spelling Quiz",
       "subtitle": "Learn correct spelling",
-      "image": "assets/images/spelling.jpeg",
+      "image": "assets/images/spelling_quizz.png",
       "score": 340,
       "stars": 5,
-      "colors": [const Color(0xFF7F00FF), const Color(0xFFE100FF)],
+      "gradient": const LinearGradient(
+        colors: [Color(0xFFB189FF), Color(0xFF7B41F5)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      "btnIconColor": const Color(0xFF7B41F5),
     },
     {
       "title": "Word Space",
       "subtitle": "Build words and improve vocabulary",
-      "image": "assets/images/wordspace.jpeg",
+      "image": "assets/images/wordspace.png",
       "score": 280,
-      "stars": 4,
-      "colors": [const Color(0xFF11998E), const Color(0xFF38EF7D)],
+      "stars": 5,
+      "gradient": const LinearGradient(
+        colors: [Color(0xFF6EDAA3), Color(0xFF1F9E68)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      "btnIconColor": const Color(0xFF1F9E68),
     },
   ];
 
@@ -48,8 +65,16 @@ class _GamesZonePageState extends State<GamesZonePage> {
 
   Future<void> playBackgroundMusic() async {
     await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-
     await _audioPlayer.play(AssetSource("music/audio.mp3"), volume: 0.4);
+  }
+
+  // 2. Added method to toggle mute state dynamically
+  Future<void> _toggleMute() async {
+    setState(() {
+      _isMuted = !_isMuted;
+    });
+    // Set volume to 0.0 if muted, or restore to original 0.4 if unmuted
+    await _audioPlayer.setVolume(_isMuted ? 0.0 : 0.4);
   }
 
   @override
@@ -61,313 +86,46 @@ class _GamesZonePageState extends State<GamesZonePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-
-      appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-
-        title: const Text(
-          "🎮 Games Zone",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-            color: Colors.white,
-          ),
-        ),
-      ),
-
       body: Container(
+        // Mimicking the playful outdoor background sky and path scenery
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage("assets/images/game_bg.png"),
+            image: AssetImage(
+              "assets/images/games_zone_bg.png",
+            ), // Add your background scenery asset here
             fit: BoxFit.cover,
           ),
         ),
-
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.black.withOpacity(0.15),
-                Colors.black.withOpacity(0.08),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-
-          child: Stack(
+        child: SafeArea(
+          child: Column(
             children: [
-              /// FLOATING BUBBLES
-              Positioned(
-                top: 120,
-                left: 20,
-                child: _buildBubble(35, Colors.orange),
-              ),
-
-              Positioned(
-                top: 220,
-                right: 30,
-                child: _buildBubble(25, Colors.blue),
-              ),
-
-              Positioned(
-                bottom: 180,
-                left: 40,
-                child: _buildBubble(28, Colors.green),
-              ),
-
-              Positioned(
-                bottom: 120,
-                right: 50,
-                child: _buildBubble(40, Colors.purple),
-              ),
-
-              /// GAME LIST
-              ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.only(
-                  top: 100,
-                  left: 18,
-                  right: 18,
-                  bottom: 30,
-                ),
-                itemCount: games.length,
-
-                itemBuilder: (context, index) {
-                  final game = games[index];
-
-                  return Container(
-                    height: 150,
-                    margin: const EdgeInsets.only(bottom: 22),
-
-                    child: Material(
-                      elevation: 10,
-                      shadowColor: Colors.black26,
-                      borderRadius: BorderRadius.circular(30),
-                      color: Colors.transparent,
-
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(30),
-
-                        onTap: () {
-                          if (game['title'] == "Spelling Quiz") {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const QuizGamePage(),
-                              ),
-                            );
-                          } else if (game['title'] == "Word Space") {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const WordSpaceGamePage(),
-                              ),
-                            );
-                          }
-                        },
-
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(30),
-
-                            gradient: LinearGradient(
-                              colors: game['colors'],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+              const SizedBox(height: 12),
+              _buildHeader(context),
+              // We use an Expanded + Center combo to keep the content mathematically in the middle of the remaining space
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: games.map((game) {
+                                return _buildGameCard(context, game);
+                              }).toList(),
                             ),
-                          ),
-
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: -30,
-                                right: -20,
-                                child: Container(
-                                  width: 120,
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.08),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-
-                              Positioned(
-                                bottom: -35,
-                                left: -20,
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.06),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-
-                              Padding(
-                                padding: const EdgeInsets.all(18),
-
-                                child: Row(
-                                  children: [
-                                    /// IMAGE
-                                    Container(
-                                      width: 110,
-                                      height: 110,
-
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(24),
-
-                                        image: DecorationImage(
-                                          image: AssetImage(game['image']),
-                                          fit: BoxFit.cover,
-                                        ),
-
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.18,
-                                            ),
-                                            blurRadius: 12,
-                                            offset: const Offset(0, 6),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    const SizedBox(width: 18),
-
-                                    /// DETAILS
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-
-                                        children: [
-                                          Text(
-                                            game['title'],
-
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 23,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 8),
-
-                                          Text(
-                                            game['subtitle'],
-
-                                            style: TextStyle(
-                                              color: Colors.white.withOpacity(
-                                                0.92,
-                                              ),
-                                              fontSize: 13,
-                                              height: 1.3,
-                                            ),
-                                          ),
-
-                                          const SizedBox(height: 14),
-
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 7,
-                                                    ),
-
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withOpacity(0.18),
-
-                                                  borderRadius:
-                                                      BorderRadius.circular(18),
-                                                ),
-
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(
-                                                      Icons
-                                                          .emoji_events_rounded,
-                                                      color: Colors.yellow,
-                                                      size: 18,
-                                                    ),
-
-                                                    const SizedBox(width: 6),
-
-                                                    Text(
-                                                      "${game['score']}",
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-                                              const SizedBox(width: 12),
-
-                                              Expanded(
-                                                child: Row(
-                                                  children: List.generate(
-                                                    game['stars'],
-                                                    (index) => const Padding(
-                                                      padding: EdgeInsets.only(
-                                                        right: 2,
-                                                      ),
-                                                      child: Icon(
-                                                        Icons.star_rounded,
-                                                        color: Colors.yellow,
-                                                        size: 20,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    /// PLAY BUTTON
-                                    Container(
-                                      width: 52,
-                                      height: 52,
-
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-
-                                      child: const Icon(
-                                        Icons.play_arrow_rounded,
-                                        color: Colors.black,
-                                        size: 34,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -376,14 +134,289 @@ class _GamesZonePageState extends State<GamesZonePage> {
     );
   }
 
-  Widget _buildBubble(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Circular Soft-Yellow Back Button
+          InkWell(
+            onTap: () => Navigator.pop(context),
+            borderRadius: BorderRadius.circular(50),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBE6),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 18,
+                color: Color(0xFFE88905),
+              ),
+            ),
+          ),
 
+          // Center Controller Icon & App Title
+          Column(
+            children: [
+              const Image(
+                image: AssetImage(
+                  "assets/images/gamepad_icon.png",
+                ), // Use a cute game controller image asset if available
+                height: 44,
+                width: 44,
+                errorBuilder: _fallbackControllerIcon,
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                "Games Zone",
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A2B6D),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "Play, Learn & Have Fun!",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1A2B6D).withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+
+          // 3. Updated Action Section: Wrapped Mute Button and Points badge together
+          Row(
+            children: [
+              // Mute/Unmute Audio Button
+              InkWell(
+                onTap: _toggleMute,
+                borderRadius: BorderRadius.circular(50),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _isMuted
+                        ? const Color(0xFFFFEAEA)
+                        : const Color(0xFFE6F7FF),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    _isMuted
+                        ? Icons.volume_off_rounded
+                        : Icons.volume_up_rounded,
+                    size: 20,
+                    color: _isMuted
+                        ? Colors.redAccent
+                        : const Color(0xFF1F9E68),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Dashboard Points Badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7E6),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.star_rounded,
+                      color: Colors.orangeAccent,
+                      size: 22,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      "1250",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: Color(0xFF4A4A4A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _fallbackControllerIcon(context, error, stackTrace) {
+    return const Icon(
+      Icons.sports_esports_rounded,
+      size: 48,
+      color: Color(0xFF1E438A),
+    );
+  }
+
+  Widget _buildGameCard(BuildContext context, Map<String, dynamic> game) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
-        shape: BoxShape.circle,
+        gradient: game['gradient'],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          onTap: () {
+            if (game['title'] == "Spelling Quiz") {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const QuizGamePage()),
+              );
+            } else if (game['title'] == "Word Space") {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WordSpaceGamePage(),
+                ),
+              );
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                // Character Illustration Vector Space
+                Container(
+                  width: 95,
+                  height: 95,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage(game['image']),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Card details panel
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        game['title'],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        game['subtitle'],
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 13,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Score layout with mini stars alignment
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.emoji_events_rounded,
+                            color: Color(0xFFFFF066),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${game['score']}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Row(
+                            children: List.generate(
+                              game['stars'],
+                              (index) => const Icon(
+                                Icons.star_rounded,
+                                color: Color(0xFFFFF066),
+                                size: 15,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Pure white circular action button matching the layout
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: game['btnIconColor'],
+                    size: 32,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

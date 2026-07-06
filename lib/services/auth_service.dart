@@ -217,4 +217,25 @@ class AuthService {
       return {"status": false, "message": "Network error occurred"};
     }
   }
+
+  static Future<Map<String, dynamic>> logout({required String deviceId}) async {
+    final token = await LocalStorageService.getToken();
+
+    final url = Uri.parse('$baseUrl/api/student/logout');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"device_id": deviceId}),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {"status": false, "message": "Network error occurred"};
+    }
+  }
 }

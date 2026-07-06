@@ -8,7 +8,6 @@ import '../notification_page.dart';
 import '../services/student_service.dart';
 import 'package:glapod/utils/string_utilities.dart';
 
-
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final double height;
   final String? title;
@@ -45,7 +44,8 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => Size.fromHeight(
-      bottom == null ? height : height + (bottom?.preferredSize.height ?? 0));
+    bottom == null ? height : height + (bottom?.preferredSize.height ?? 0),
+  );
 }
 
 class _CustomAppBarState extends State<CustomAppBar> {
@@ -64,8 +64,8 @@ class _CustomAppBarState extends State<CustomAppBar> {
 
     try {
       final bool success = await StudentService.toggleBookmark(
-          widget.bookmarkType ?? "question_bank",
-          widget.postId.toString()
+        widget.bookmarkType ?? "question_bank",
+        widget.postId.toString(),
       );
 
       if (success) {
@@ -85,52 +85,96 @@ class _CustomAppBarState extends State<CustomAppBar> {
   Widget build(BuildContext context) {
     return AppBar(
       toolbarHeight: widget.height,
-      backgroundColor: Colors.transparent,
       elevation: 0,
-      automaticallyImplyLeading: !widget.isDashboard,
-      leading: !widget.isDashboard
-          ? IconButton(
-        icon: const Icon(
-          Icons.arrow_back_ios_new,
-          color: Colors.white,
-          size: 20,
-        ),
-        onPressed: () => Navigator.of(context).pop(),
-      )
-          : null,
-      iconTheme: const IconThemeData(color: Colors.white),
+      backgroundColor: Colors.transparent,
+      automaticallyImplyLeading: false,
       bottom: widget.bottom,
       flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)],
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
+            colors: [Color(0xffFF9F1C), Color(0xffFF6B35)],
           ),
-          // REMOVED: borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(28),
+            bottomRight: Radius.circular(28),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.orange.withOpacity(.25),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
       ),
-      title: widget.isDashboard ? _buildDashboardTitle() : _buildStandardTitle(),
+      leading: widget.isDashboard
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: _circleButton(
+                icon: Icons.arrow_back_ios_new,
+                onTap: () => Navigator.pop(context),
+              ),
+            ),
+      title: widget.isDashboard
+          ? _buildDashboardTitle()
+          : _buildStandardTitle(),
       actions: _buildActions(context),
+    );
+  }
+
+  Widget _circleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color iconColor = Colors.white,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(50),
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.18),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
     );
   }
 
   Widget _buildDashboardTitle() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset("assets/images/logoo.png", height:50),
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-           child: Text(
-           'EdMaster',
-            style: GoogleFonts.comfortaa(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+        Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
             color: Colors.white,
-           letterSpacing: -1.2,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Image.asset("assets/images/logoo.png", height: 34),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "EdMaster",
+              style: GoogleFonts.comfortaa(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
-           ),
+            const Text(
+              "Learn Smart",
+              style: TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ],
         ),
       ],
     );
@@ -144,15 +188,18 @@ class _CustomAppBarState extends State<CustomAppBar> {
         Text(
           StringUtils.toSentenceCase(widget.title.toString()) ?? "",
           style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
             color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
           ),
         ),
         if (widget.isSubtitle && widget.subtitleText != null)
-          Text(
-            widget.subtitleText!,
-            style: const TextStyle(fontSize: 14, color: Colors.white70),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              widget.subtitleText!,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
           ),
       ],
     );
@@ -163,18 +210,19 @@ class _CustomAppBarState extends State<CustomAppBar> {
       return [
         IconButton(
           icon: const Icon(Icons.person, color: Colors.white),
-          onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage())
-          ).then((_) {
-            if (widget.isDashboard) setState(() {});
-          }),
+          onPressed: () =>
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              ).then((_) {
+                if (widget.isDashboard) setState(() {});
+              }),
         ),
         IconButton(
           icon: const Icon(Icons.notifications, color: Colors.white),
           onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const NotificationPage())
+            context,
+            MaterialPageRoute(builder: (context) => const NotificationPage()),
           ),
         ),
         const SizedBox(width: 10),
@@ -186,25 +234,33 @@ class _CustomAppBarState extends State<CustomAppBar> {
         Container(
           margin: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: _isLoading ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            color: _isLoading
+                ? Colors.white.withOpacity(0.2)
+                : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: IconButton(
             icon: _isLoading
                 ? const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : Icon(
-              isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: isFavorite ? Colors.redAccent : Colors.white,
-            ),
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.redAccent : Colors.white,
+                  ),
             onPressed: _isLoading ? null : _handleBookmarkToggle,
           ),
         ),
         IconButton(
           icon: const Icon(Icons.share, color: Colors.white),
           onPressed: () {
-            String finalMessage = widget.shareText ??
+            String finalMessage =
+                widget.shareText ??
                 "Check out this ${widget.title ?? 'content'} on Glapod!";
             Share.share(finalMessage);
           },

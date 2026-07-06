@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:glapod/study_subject_listing.dart';
 import 'package:glapod/solved_papers_page.dart';
-import 'package:glapod/prediction_page.dart'; // 🔹 Ensure this path is correct
+import 'package:glapod/prediction_page.dart';
 import 'package:glapod/translator_page.dart';
 import 'package:glapod/profile.dart';
 import 'package:glapod/storage/local_storage_service.dart';
@@ -61,301 +61,6 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(minHeight: double.infinity),
-        decoration: const BoxDecoration(color: Color(0xFFF5F7FB)),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-
-              // GREETING SECTION
-              Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(35),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ProfilePage(),
-                              ),
-                            ).then((_) => _loadUserName());
-                          },
-                          child: CircleAvatar(
-                            radius: 22,
-                            backgroundColor: Colors.pink.shade100,
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Text(
-                              userName,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF4D6),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.star, color: Colors.amber, size: 18),
-                              SizedBox(width: 6),
-                              Text(
-                                "1250 pts",
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(width: 10),
-
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ProfilePage(),
-                              ),
-                            ).then((_) => _loadUserName());
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.settings_outlined,
-                              size: 24,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 15),
-                    Text(
-                      "Hello",
-                      style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    const Text(
-                      "Let's continue learning",
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 15,
-                      mainAxisSpacing: 15,
-                      childAspectRatio: 0.78,
-                      children: [
-                        _dashboardCard(
-                          title: "Study",
-                          subtitle: "Class Lessons",
-                          imagePath: "assets/images/dashboard/study.png",
-                          color: const Color(0xFF2F80ED),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const Study()),
-                            );
-                          },
-                        ),
-
-                        _dashboardCard(
-                          title: "Word Master",
-                          subtitle: "Vocabulary",
-                          imagePath: "assets/images/dashboard/wordmaster.png",
-                          color: const Color(0xFF27AE60),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const PredictionPage(),
-                              ),
-                            );
-                          },
-                        ),
-
-                        _dashboardCard(
-                          title: "Translator",
-                          subtitle: "Language",
-                          imagePath: "assets/images/dashboard/translator.png",
-                          color: const Color(0xFFF2994A),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TranslatorPage(),
-                              ),
-                            );
-                          },
-                        ),
-
-                        _dashboardCard(
-                          title: "Games Zone",
-                          subtitle: "Fun & Learning",
-                          imagePath: "assets/images/dashboard/games.png",
-                          color: const Color(0xFF9B51E0),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const GamesZonePage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    const Text(
-                      "Quick Access",
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    SizedBox(
-                      height: 130,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _miniCard(
-                            title: "Solved Papers",
-                            imagePath:
-                                "assets/images/dashboard/solvedpapers.png",
-                            color: Colors.orange,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const SolvedPapersPage(),
-                                ),
-                              );
-                            },
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          _miniCard(
-                            title: "Daily Quiz",
-                            imagePath: "assets/images/dashboard/daily_quiz.png",
-                            color: Colors.blue,
-                            onTap: () {},
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          _miniCard(
-                            title: "GK",
-                            imagePath: "assets/images/dashboard/daily_quiz.png",
-                            color: Colors.green,
-                            onTap: () {},
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 100),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _miniCard({
-    required String title,
-    required String imagePath,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.1),
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Column(
-          children: [
-            Expanded(child: Image.asset(imagePath, fit: BoxFit.contain)),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTextShimmer() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
@@ -366,6 +71,21 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButtonShimmer(double width) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        width: width,
+        height: 85,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
         ),
       ),
     );
@@ -404,22 +124,384 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     );
   }
 
-  Widget _buildButtonShimmer(double width) {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+  Widget _miniCard({
+    required String title,
+    required String imagePath,
+    required Color color,
+    required VoidCallback onTap,
+    required double cardWidth,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(25),
       child: Container(
-        width: width,
-        height: 85,
+        width: cardWidth,
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: color.withOpacity(.1),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(child: Image.asset(imagePath, fit: BoxFit.contain)),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final double screenWidth = mediaQuery.size.width;
+    final double topPadding = mediaQuery.padding.top > 0
+        ? mediaQuery.padding.top + 10
+        : 40.0;
+
+    // Responsive calculations to eliminate layout breaking
+    double gridAspectRatio = screenWidth > 600 ? 0.95 : 0.82;
+    double quickAccessCardWidth = screenWidth * 0.36;
+    if (quickAccessCardWidth > 160) quickAccessCardWidth = 160;
+
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(color: Color(0xFFF5F7FB)),
+        child: SafeArea(
+          top: false, // Custom clean padding handled below
+          bottom: true,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: topPadding),
+
+                // 🔹 RESPONSIVE HEADER BAR WITH ELEMENT BORDERS
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(35),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 15,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Modified Logo Container to replicate the reference design
+                      Container(
+                        width: screenWidth > 600 ? 56 : 48,
+                        height: screenWidth > 600 ? 56 : 48,
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 255, 255, 255),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black12, width: 1.2),
+                        ),
+                        child: ClipOval(
+                          child: Transform.scale(
+                            scale: 1.20, // try values between 1.25 and 1.4
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          // ... rest of your code for stars and profile items stays identical
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF4D6),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Color(0xFFF5C542),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.star_rounded,
+                                  color: Colors.amber,
+                                  size: 12,
+                                ),
+                                SizedBox(width: 2),
+                                Text(
+                                  "1250",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ProfilePage(),
+                                ),
+                              ).then((_) => _loadUserName());
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.black12,
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: screenWidth > 600 ? 22 : 18,
+                                backgroundColor: Colors.pink.shade100,
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.black87,
+                                  size: screenWidth > 600 ? 22 : 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // 🔹 RESPONSIVE PARENT DASHBOARD CONTAINER
+                Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(35),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 15,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      isLoading
+                          ? _buildTextShimmer()
+                          : RichText(
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: "Hello, ",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: userName,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        "Let's continue learning",
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Responsive Dynamic Main Grid Content
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: gridAspectRatio,
+                        children: [
+                          _dashboardCard(
+                            title: "Study Master",
+                            subtitle: "Class Lessons",
+                            imagePath: "assets/images/dashboard/study.png",
+                            color: const Color(0xFF2F80ED),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const Study(),
+                                ),
+                              );
+                            },
+                          ),
+                          _dashboardCard(
+                            title: "Word Master",
+                            subtitle: "Vocabulary",
+                            imagePath: "assets/images/dashboard/wordmaster.png",
+                            color: const Color(0xFF27AE60),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PredictionPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _dashboardCard(
+                            title: "English Master",
+                            subtitle: "Learn English",
+                            imagePath:
+                                "assets/images/dashboard/english_master.png",
+                            color: const Color(0xFFF2994A),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const TranslatorPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _dashboardCard(
+                            title: "Game Master",
+                            subtitle: "Fun & Learning",
+                            imagePath: "assets/images/dashboard/games.png",
+                            color: const Color(0xFF9B51E0),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const GamesZonePage(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 18),
+                      const Text(
+                        "Quick Access",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Horizontal Slider Container
+                      SizedBox(
+                        height: 105,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            _miniCard(
+                              title: "Solved Papers",
+                              imagePath:
+                                  "assets/images/dashboard/solvedpapers.png",
+                              color: Colors.orange,
+                              cardWidth: quickAccessCardWidth,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SolvedPapersPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            _miniCard(
+                              title: "Daily Quiz",
+                              imagePath:
+                                  "assets/images/dashboard/daily_quiz.png",
+                              color: Colors.blue,
+                              cardWidth: quickAccessCardWidth,
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 10),
+                            _miniCard(
+                              title: "Translator",
+                              imagePath:
+                                  "assets/images/dashboard/translator.png",
+                              color: const Color.fromARGB(255, 255, 3, 121),
+                              cardWidth: quickAccessCardWidth,
+                              onTap: () {},
+                            ),
+                            const SizedBox(width: 10),
+                            _miniCard(
+                              title: "GK",
+                              imagePath:
+                                  "assets/images/dashboard/daily_quiz.png",
+                              color: Colors.green,
+                              cardWidth: quickAccessCardWidth,
+                              onTap: () {},
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
+// 🔹 OPTIMIZED GLOBAL CARD OBJECT BUILDERS
 Widget _dashboardCard({
   required String title,
   required String subtitle,
@@ -428,46 +510,50 @@ Widget _dashboardCard({
   required VoidCallback onTap,
 }) {
   return InkWell(
-    borderRadius: BorderRadius.circular(30),
+    borderRadius: BorderRadius.circular(24),
     onTap: onTap,
     child: Container(
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: color.withOpacity(.25),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Expanded(
               flex: 5,
-              child: Image.asset(imagePath, fit: BoxFit.contain),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Image.asset(imagePath, fit: BoxFit.contain),
+              ),
             ),
-
-            const SizedBox(height: 8),
-
+            const SizedBox(height: 4),
             Text(
               title,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
-
-            const SizedBox(height: 6),
           ],
         ),
       ),
@@ -485,16 +571,24 @@ Widget _quickCard({
     onTap: onTap,
     borderRadius: BorderRadius.circular(20),
     child: Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color.withOpacity(.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(imagePath, height: 48, width: 48),
-          const SizedBox(width: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Image.asset(imagePath, height: 38, width: 38),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: Colors.black54,
+            ),
+          ),
         ],
       ),
     ),

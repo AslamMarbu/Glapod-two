@@ -34,17 +34,14 @@ class StudentService {
         // Session expired - clear everything
         await LocalStorageService.logOut();
       }
-    } catch (e) {
-
-    }
+    } catch (e) {}
   }
 
   static final Dio _dio = Dio();
-  static const String baseUrl =ApiConstants.baseUrl;
+  static const String baseUrl = ApiConstants.baseUrl;
 
   static Future<List<dynamic>> fetchClasses() async {
     try {
-
       String? token = await LocalStorageService.getToken();
 
       if (token == null) {
@@ -63,15 +60,13 @@ class StudentService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        if (data["status"] == true &&
-            data["allclass"] != null) {
+        if (data["status"] == true && data["allclass"] != null) {
           return data["allclass"];
         } else {
           return [];
         }
       } else {
-        throw Exception(
-            "Failed to load classes: ${response.statusCode}");
+        throw Exception("Failed to load classes: ${response.statusCode}");
       }
     } catch (e) {
       throw Exception("API Error: $e");
@@ -101,10 +96,9 @@ class StudentService {
 
       if (imageFile != null) {
         // MATCHING POSTMAN: The key must be 'image'
-        request.files.add(await http.MultipartFile.fromPath(
-          'image',
-          imageFile.path,
-        ));
+        request.files.add(
+          await http.MultipartFile.fromPath('image', imageFile.path),
+        );
       }
 
       var streamedResponse = await request.send();
@@ -115,10 +109,14 @@ class StudentService {
         return {
           "status": true,
           "message": data["message"] ?? "Success",
-          "student": data["user"] // Based on your screenshot, the key is "user"
+          "student":
+              data["user"], // Based on your screenshot, the key is "user"
         };
       } else {
-        return {"status": false, "message": "Server Error: ${response.statusCode}"};
+        return {
+          "status": false,
+          "message": "Server Error: ${response.statusCode}",
+        };
       }
     } catch (e) {
       return {"status": false, "message": "Network error: $e"};
@@ -128,7 +126,9 @@ class StudentService {
   static Future<List<dynamic>> fetchSubjects(String classId) async {
     try {
       // 🔹 DioClient handles the cache & token internally
-      final response = await DioClient.instance.get('/api/study/get-subjects/$classId');
+      final response = await DioClient.instance.get(
+        '/api/study/get-subjects/$classId',
+      );
 
       // 🔹 Dio already converted the JSON string to a Map
       final data = response.data;
@@ -142,7 +142,6 @@ class StudentService {
       return [];
     }
   }
-
 
   static Future<Map<String, dynamic>?> fetchAllLanguages() async {
     try {
@@ -165,10 +164,14 @@ class StudentService {
   }
 
   // 2. Fetch Videos using Path Parameters: /api/study/videos/37/1
-  static Future<List<dynamic>> fetchStudyVideos(dynamic chapterId, dynamic languageId) async {
+  static Future<List<dynamic>> fetchStudyVideos(
+    dynamic chapterId,
+    dynamic languageId,
+  ) async {
     try {
       // 1. Build the path (DioClient handles the baseUrl)
-      final String path = "/api/study/videos/${chapterId.toString()}/${languageId.toString()}";
+      final String path =
+          "/api/study/videos/${chapterId.toString()}/${languageId.toString()}";
 
       final response = await DioClient.instance.get(path);
 
@@ -183,7 +186,6 @@ class StudentService {
 
       return [];
     } catch (e) {
-
       return [];
     }
   }
@@ -210,10 +212,14 @@ class StudentService {
   }
 
   static Future<Map<String, dynamic>> getChapterSolutions(
-      dynamic classId, dynamic subjectId, dynamic chapterId) async {
+    dynamic classId,
+    dynamic subjectId,
+    dynamic chapterId,
+  ) async {
     try {
       // 1. Build the path (DioClient handles the baseUrl)
-      final String path = '/api/textbook-solutions/${classId.toString()}/${subjectId.toString()}/${chapterId.toString()}';
+      final String path =
+          '/api/textbook-solutions/${classId.toString()}/${subjectId.toString()}/${chapterId.toString()}';
 
       // 2. Execute GET request
       // The Interceptor adds the Auth token and checks/saves the 12-hour cache automatically
@@ -221,7 +227,9 @@ class StudentService {
 
       // 3. Return the data (Dio already parsed the JSON into a Map)
       if (response.statusCode == 200) {
-        return response.data is Map ? response.data : {"status": true, "data": response.data};
+        return response.data is Map
+            ? response.data
+            : {"status": true, "data": response.data};
       }
 
       return {"status": false, "message": "Server Error"};
@@ -232,7 +240,10 @@ class StudentService {
   }
 
   // 1. Fetch Chapters List
-  static Future<Map<String, dynamic>> getChaptersList(String subjectId, String classId) async {
+  static Future<Map<String, dynamic>> getChaptersList(
+    String subjectId,
+    String classId,
+  ) async {
     try {
       final response = await DioClient.instance.get(
         "/api/question-bank/chapters/list/$classId/$subjectId",
@@ -243,8 +254,11 @@ class StudentService {
     }
   }
 
-// 2. Fetch Mark/Type List
-  static Future<Map<String, dynamic>> getQuestionMarkList(String subjectId, String classId) async {
+  // 2. Fetch Mark/Type List
+  static Future<Map<String, dynamic>> getQuestionMarkList(
+    String subjectId,
+    String classId,
+  ) async {
     try {
       final response = await DioClient.instance.get(
         "/api/question-bank/mark/list/$classId/$subjectId/",
@@ -256,8 +270,12 @@ class StudentService {
     }
   }
 
-// NOT USING START
-  static Future<Map<String, dynamic>> getQuestionsByChapterCache(String subjectId, String classId, String chapterId) async {
+  // NOT USING START
+  static Future<Map<String, dynamic>> getQuestionsByChapterCache(
+    String subjectId,
+    String classId,
+    String chapterId,
+  ) async {
     try {
       final response = await DioClient.instance.get(
         "/api/question-bank/chapter/$classId/$subjectId/$chapterId",
@@ -269,8 +287,11 @@ class StudentService {
     }
   }
 
-
-  static Future<Map<String, dynamic>> getQuestionsByMarkCache(String subjectId, String classId, String mark) async {
+  static Future<Map<String, dynamic>> getQuestionsByMarkCache(
+    String subjectId,
+    String classId,
+    String mark,
+  ) async {
     final token = await LocalStorageService.getToken();
     final response = await http.get(
       Uri.parse("$baseUrl/api/question-bank/mark/$classId/$subjectId/$mark"),
@@ -279,8 +300,12 @@ class StudentService {
     return jsonDecode(response.body);
   }
 
-// NOT USING END
-  static Future<Map<String, dynamic>> getQuestionsByChapter(String subjectId, String classId, String chapterId) async {
+  // NOT USING END
+  static Future<Map<String, dynamic>> getQuestionsByChapter(
+    String subjectId,
+    String classId,
+    String chapterId,
+  ) async {
     try {
       final response = await DioClient.instance.get(
         "/api/question-bank/chapter/$classId/$subjectId/$chapterId",
@@ -298,7 +323,11 @@ class StudentService {
     }
   }
 
-  static Future<Map<String, dynamic>> getQuestionsByMark(String subjectId, String classId, String mark) async {
+  static Future<Map<String, dynamic>> getQuestionsByMark(
+    String subjectId,
+    String classId,
+    String mark,
+  ) async {
     final token = await LocalStorageService.getToken();
     final response = await http.get(
       Uri.parse("$baseUrl/api/question-bank/mark/$classId/$subjectId/$mark"),
@@ -311,7 +340,8 @@ class StudentService {
     );
     return jsonDecode(response.body);
   }
-// Fetch the Years for a specific subject
+
+  // Fetch the Years for a specific subject
   Future<QuestionYearModel?> fetchYears(int subjectId) async {
     try {
       // DioClient handles the baseUrl, Bearer token, and 12-hour caching automatically
@@ -323,8 +353,7 @@ class StudentService {
         // Dio returns the data already decoded as a Map
         return QuestionYearModel.fromJson(response.data);
       }
-    } catch (e) {
-    }
+    } catch (e) {}
     return null;
   }
 
@@ -344,9 +373,7 @@ class StudentService {
           return data['data']; // Returns the list of paper sets
         }
       }
-    } catch (e) {
-
-    }
+    } catch (e) {}
     return null;
   }
 
@@ -367,13 +394,15 @@ class StudentService {
       }
       return [];
     } catch (e) {
-
       return [];
     }
   }
 
   // 🔹 Make this static too if your other providers call it similarly
-  static Future<List<dynamic>> fetchYearWisePapers(String subjectId, String year) async {
+  static Future<List<dynamic>> fetchYearWisePapers(
+    String subjectId,
+    String year,
+  ) async {
     try {
       final response = await DioClient.instance.get(
         '/api/solved-papers/$subjectId/$year',
@@ -388,11 +417,9 @@ class StudentService {
       }
       return [];
     } catch (e) {
-
       return [];
     }
   }
-
 
   static Future<bool> toggleBookmark(String type, String id) async {
     try {
@@ -413,7 +440,6 @@ class StudentService {
       }
       return false;
     } catch (e) {
-
       return false;
     }
   }
@@ -442,12 +468,13 @@ class StudentService {
       return [];
     }
   }
-// 1. Guess Name Question
+
+  // 1. Guess Name Question
   static Future<Map<String, dynamic>> fetchGuessNameQuestion(
-      int categoryId,
-      String level,
-      {String? status} // Optional status parameter
-      ) async {
+    int categoryId,
+    String level, {
+    String? status, // Optional status parameter
+  }) async {
     try {
       final token = await LocalStorageService.getToken();
 
@@ -476,7 +503,11 @@ class StudentService {
 
       return response.data;
     } catch (e) {
-      return {"status": false, "message": "Connection error", "completed": false};
+      return {
+        "status": false,
+        "message": "Connection error",
+        "completed": false,
+      };
     }
   }
 
@@ -487,16 +518,15 @@ class StudentService {
     try {
       final token = await LocalStorageService.getToken();
       final response = await http.post(
-        Uri.parse("${ApiConstants.baseUrl}/api/prediction/guess-name/submit-feedback"),
+        Uri.parse(
+          "${ApiConstants.baseUrl}/api/prediction/guess-name/submit-feedback",
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          "guess_name_id": guessNameId,
-          "feedback": feedback,
-        }),
+        body: jsonEncode({"guess_name_id": guessNameId, "feedback": feedback}),
       );
 
       if (response.statusCode == 200) {
@@ -509,7 +539,6 @@ class StudentService {
     }
   }
 
-
   static Future<Map<String, dynamic>> getGuessNameQuestionGrid({
     required int categoryId,
     required String level,
@@ -517,7 +546,9 @@ class StudentService {
     try {
       final token = await LocalStorageService.getToken();
       final response = await http.post(
-        Uri.parse("${ApiConstants.baseUrl}/api/prediction/guess-name/question/all"),
+        Uri.parse(
+          "${ApiConstants.baseUrl}/api/prediction/guess-name/question/all",
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -525,7 +556,7 @@ class StudentService {
         },
         body: jsonEncode({
           "cate_id": categoryId, //
-          "level": level,        //
+          "level": level, //
         }),
       );
 
@@ -539,17 +570,15 @@ class StudentService {
     }
   }
 
-// 2. Past Tense Question
+  // 2. Past Tense Question
   static Future<Map<String, dynamic>> fetchPastTenseQuestion(
-      String level,
-      {String? status} // Optional status parameter
-      ) async {
+    String level, {
+    String? status, // Optional status parameter
+  }) async {
     try {
       final token = await LocalStorageService.getToken();
 
-      Map<String, dynamic> map = {
-        'level': level,
-      };
+      Map<String, dynamic> map = {'level': level};
 
       // Add status if it exists
       if (status != null) {
@@ -575,23 +604,20 @@ class StudentService {
     }
   }
 
-// 3. Opposite Words Question
+  // 3. Opposite Words Question
   static Future<Map<String, dynamic>> fetchOppositeQuestion(
-      String level,
-      {String? status} // Optional status parameter
-      ) async {
+    String level, {
+    String? status, // Optional status parameter
+  }) async {
     try {
       final token = await LocalStorageService.getToken();
 
-      Map<String, dynamic> map = {
-        'level': level,
-      };
+      Map<String, dynamic> map = {'level': level};
 
       // Add status if it exists
       if (status != null) {
         map['status'] = status;
       }
-
 
       FormData formData = FormData.fromMap(map);
 
@@ -611,7 +637,7 @@ class StudentService {
       return {
         "status": false,
         "message": "Connection error: Please check your internet.",
-        "completed": false
+        "completed": false,
       };
     }
   }
@@ -664,17 +690,21 @@ class StudentService {
       }
       return null;
     } catch (e) {
-
       return null;
     }
   }
 
-  static Future<List<dynamic>> fetchSamplePapers(String classId, String subjectId) async {
+  static Future<List<dynamic>> fetchSamplePapers(
+    String classId,
+    String subjectId,
+  ) async {
     try {
       final token = await LocalStorageService.getToken();
       final response = await http.get(
         // Corrected URL structure based on your prompt
-        Uri.parse("$baseUrl/api/study/subjects/sample-papers/$classId/$subjectId"),
+        Uri.parse(
+          "$baseUrl/api/study/subjects/sample-papers/$classId/$subjectId",
+        ),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -692,9 +722,4 @@ class StudentService {
       return [];
     }
   }
-
 }
-
-
-
-

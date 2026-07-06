@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:translator/translator.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 
 class TranslatorPage extends StatefulWidget {
   const TranslatorPage({super.key});
@@ -24,10 +25,19 @@ class _TranslatorPageState extends State<TranslatorPage> {
   String translatedText = "";
   Timer? _debounce;
   final translator = GoogleTranslator();
+  final FlutterTts _tts = FlutterTts();
 
   // --- Speech Variables ---
   late stt.SpeechToText _speech;
   bool _isListening = false;
+
+  // --- UI Styling Palette From Dashboard ---
+  final Color backgroundColor = const Color(0xFFF1F5F9); // Light iOS-style tint
+  final Color translatorOrange = const Color(
+    0xFFED7E22,
+  ); // From your Dashboard tile!
+  final Color textDark = const Color(0xFF1E293B);
+  final Color surfaceWhite = Colors.white;
 
   @override
   void initState() {
@@ -35,7 +45,15 @@ class _TranslatorPageState extends State<TranslatorPage> {
     _speech = stt.SpeechToText();
   }
 
-  // --- Clear Function ---
+  @override
+  void dispose() {
+    _tts.stop();
+    sourceController.dispose();
+    searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
   void _clearAll() {
     setState(() {
       sourceController.clear();
@@ -43,7 +61,6 @@ class _TranslatorPageState extends State<TranslatorPage> {
     });
   }
 
-  // --- Microphone Logic ---
   void _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
@@ -73,16 +90,33 @@ class _TranslatorPageState extends State<TranslatorPage> {
     }
   }
 
-  // --- Translation Logic ---
+  Future<void> _speak(String text, String languageCode) async {
+    if (text.trim().isEmpty) return;
+
+    await _tts.stop();
+
+    await _tts.setLanguage(languageCode);
+
+    await _tts.setSpeechRate(0.5);
+
+    await _tts.setPitch(1.0);
+
+    await _tts.speak(text);
+  }
+
   void _translateText(String text) async {
     if (text.trim().isEmpty) {
       setState(() => translatedText = "");
       return;
     }
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
       try {
-        var translation = await translator.translate(text, from: sourceCode, to: targetCode);
+        var translation = await translator.translate(
+          text,
+          from: sourceCode,
+          to: targetCode,
+        );
         setState(() => translatedText = translation.text);
       } catch (e) {
         setState(() => translatedText = "Check Connection...");
@@ -105,7 +139,6 @@ class _TranslatorPageState extends State<TranslatorPage> {
     });
   }
 
-  // --- Language Data ---
   final Map<String, String> languages = {
     'Afrikaans': 'af',
     'Arabic': 'ar',
@@ -136,106 +169,182 @@ class _TranslatorPageState extends State<TranslatorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE5E9F0),
-      appBar: const CustomAppBar(height: 40, title: "Translator", isDashboard: false),
-      body: Column(
-        children: [
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
+      backgroundColor: backgroundColor,
+      // CustomAppBar with matching clean text title style
+      appBar: const CustomAppBar(
+        height: 50,
+        title: "Translator",
+        isDashboard: false,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // --- 1. Language Selectors Block ---
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: surfaceWhite,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
                   children: [
-                    // --- Language Pickers ---
-                    Row(
-                      children: [
-                        Expanded(child: _searchableDropdown(true)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: IconButton(
-                            onPressed: _swapLanguages,
-                            icon: const Icon(Icons.swap_horiz, color: Color(0xFF1E88E5), size: 28),
-                          ),
+                    Expanded(child: _searchableDropdown(true)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: backgroundColor,
+                          shape: BoxShape.circle,
                         ),
-                        Expanded(child: _searchableDropdown(false)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // --- Clear Button Row (Color matched to Speak Now button) ---
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: InkWell(
-                        onTap: _clearAll,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            // Applied the same gradient as the Speak Now button
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              )
-                            ],
-                          ),
-                          child: const Text(
-                            "Clear",
-                            style: TextStyle(
-                              color: Colors.white, // Text color changed to white
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                        child: IconButton(
+                          onPressed: _swapLanguages,
+                          icon: Icon(
+                            Icons.swap_horiz_rounded,
+                            color: translatorOrange,
+                            size: 24,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-
-                    _buildTranslationBox(
-                      label: sourceLanguage,
-                      child: TextField(
-                        controller: sourceController,
-                        maxLines: 5,
-                        onChanged: _translateText,
-                        decoration: const InputDecoration(
-                          hintText: "Speak or type here...",
-                          border: InputBorder.none,
-                        ),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    _buildTranslationBox(
-                      label: targetLanguage,
-                      child: SelectableText(
-                        translatedText.isEmpty ? "Translation..." : translatedText,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.normal,
-                          color: translatedText.isEmpty ? Colors.grey : Colors.black87,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    _micActionButton(onTap: _listen),
+                    Expanded(child: _searchableDropdown(false)),
                   ],
                 ),
               ),
-            ),
+              const SizedBox(height: 20),
+
+              // --- 2. Input/Output Bento Cards ---
+              _buildDashboardCard(
+                label: sourceLanguage,
+                isSource: true,
+                child: TextField(
+                  controller: sourceController,
+                  maxLines: 5,
+                  onChanged: _translateText,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: textDark,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: "Tap to type text...",
+                    hintStyle: TextStyle(color: Colors.black26),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              _buildDashboardCard(
+                label: targetLanguage,
+                isSource: false,
+                child: SelectableText(
+                  translatedText.isEmpty
+                      ? "Translation appears here..."
+                      : translatedText,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: translatedText.isEmpty
+                        ? Colors.black26
+                        : translatorOrange,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // --- 3. Dynamic Footer Actions ---
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: _clearAll,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: surfaceWhite,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.black12, width: 1),
+                        ),
+                        child: Center(
+                          child: Text(
+                            "Clear",
+                            style: TextStyle(
+                              color: textDark,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: InkWell(
+                      onTap: _listen,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: _isListening
+                              ? Colors.redAccent
+                              : translatorOrange,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  (_isListening
+                                          ? Colors.redAccent
+                                          : translatorOrange)
+                                      .withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _isListening
+                                  ? Icons.stop_circle_rounded
+                                  : Icons.mic_rounded,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isListening ? "Listening..." : "Speak Now",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -246,55 +355,56 @@ class _TranslatorPageState extends State<TranslatorPage> {
         isExpanded: true,
         hint: Text(
           isSource ? sourceLanguage : targetLanguage,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              fontSize: 14
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: textDark,
+            fontSize: 15,
           ),
           overflow: TextOverflow.ellipsis,
-          maxLines: 1,
         ),
-        items: languages.keys.map((item) => DropdownMenuItem<String>(
-          value: item,
-          child: Text(
-            item,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis,
-          ),
-        )).toList(),
+        items: languages.keys
+            .map(
+              (item) => DropdownMenuItem<String>(
+                value: item,
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: textDark,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
         onChanged: (value) {
+          if (value == null) return;
           setState(() {
             if (isSource) {
-              sourceLanguage = value!;
+              sourceLanguage = value;
               sourceCode = languages[value]!;
             } else {
-              targetLanguage = value!;
+              targetLanguage = value;
               targetCode = languages[value]!;
             }
             _translateText(sourceController.text);
           });
         },
         buttonStyleData: ButtonStyleData(
-          height: 38,
-          padding: const EdgeInsets.only(left: 10, right: 4),
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)],
-            ),
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
-            ],
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
-        iconStyleData: const IconStyleData(
-          iconEnabledColor: Colors.white,
-        ),
+        iconStyleData: IconStyleData(iconEnabledColor: textDark),
         dropdownStyleData: DropdownStyleData(
-          maxHeight: 350,
-          width: 170,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-          offset: const Offset(0, -4),
+          maxHeight: 300,
+          decoration: BoxDecoration(
+            color: surfaceWhite,
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
         dropdownSearchData: DropdownSearchData(
           searchController: searchController,
@@ -306,20 +416,29 @@ class _TranslatorPageState extends State<TranslatorPage> {
               controller: searchController,
               decoration: InputDecoration(
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                hintText: 'Search...',
-                prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
+                hintText: 'Search language...',
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 18,
+                  color: Colors.grey,
+                ),
                 filled: true,
-                fillColor: const Color(0xFFF1FAF2),
+                fillColor: backgroundColor,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.black12),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
           ),
           searchMatchFn: (item, searchValue) {
-            return item.value.toString().toLowerCase().contains(searchValue.toLowerCase());
+            return item.value.toString().toLowerCase().contains(
+              searchValue.toLowerCase(),
+            );
           },
         ),
         onMenuStateChange: (isOpen) {
@@ -329,64 +448,86 @@ class _TranslatorPageState extends State<TranslatorPage> {
     );
   }
 
-  Widget _buildTranslationBox({required String label, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1B75BB)),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          height: 220,
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF1B75BB).withOpacity(0.22),
-                const Color(0xFF6BCF2E).withOpacity(0.22),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(15),
+  Widget _buildDashboardCard({
+    required String label,
+    required bool isSource,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: surfaceWhite,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: child,
-        ),
-      ],
-    );
-  }
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isSource ? textDark.withOpacity(.5) : translatorOrange,
+                ),
+              ),
 
-  Widget _micActionButton({required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 160,
-        height: 40,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: _isListening
-                ? [Colors.red, Colors.orange]
-                : [const Color(0xFF1B75BB), const Color(0xFF6BCF2E)],
+              Row(
+                children: [
+                  Icon(
+                    isSource
+                        ? Icons.edit_note_rounded
+                        : Icons.g_translate_rounded,
+                    color: isSource
+                        ? Colors.black26
+                        : translatorOrange.withOpacity(.4),
+                    size: 20,
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: () {
+                      _speak(
+                        isSource ? sourceController.text : translatedText,
+                        isSource ? sourceCode : targetCode,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: translatorOrange.withOpacity(.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.volume_up_rounded,
+                        color: translatorOrange,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              _isListening ? "Listening..." : "Speak Now",
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        ),
+
+          const SizedBox(height: 12),
+
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 110),
+            child: child,
+          ),
+        ],
       ),
     );
   }

@@ -10,7 +10,6 @@ import 'login.dart';
 import 'subscription_page.dart';
 import 'terms_condition_page.dart';
 import 'my_favourites_page.dart';
-import 'package:glapod/utils/app_colors.dart';
 
 class ProfilePage extends StatefulWidget {
   final bool showSuccessMsg;
@@ -21,7 +20,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // 🔹 UPDATED: Specific masking logic for Phone (2+2) and Email (ar****kh@gmail.com)
+  // Specific masking logic for Phone (2+2) and Email (ar****kh@gmail.com)
   String _maskSensitiveData(String data, {bool isEmail = false}) {
     if (data.isEmpty) return "";
 
@@ -31,13 +30,11 @@ class _ProfilePageState extends State<ProfilePage> {
       String name = parts[0];
       String domain = parts[1];
 
-      // Masking: 2 letters + stars + last 2 letters of the name part
       if (name.length <= 4) {
         return "${name[0]}**${name[name.length - 1]}@$domain";
       }
       return "${name.substring(0, 2)}****${name.substring(name.length - 2)}@$domain";
     } else {
-      // Logic for Phone Number: First 2 and Last 2 visible
       if (data.length < 5) return data;
       return "${data.substring(0, 2)}******${data.substring(data.length - 2)}";
     }
@@ -52,6 +49,10 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
 
+  // Tracks persistent data states down from initialization layer
+  String _rawEmail = "";
+  String _rawMobile = "";
+
   bool _isClassSavedInStorage = false;
   File? _imageFile;
   String? _serverImageUrl;
@@ -62,15 +63,27 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadInitialData();
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _mobileController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadInitialData() async {
     await _handleLoadClasses();
     final data = await LocalStorageService.getStudent();
 
     if (data != null && mounted) {
       setState(() {
+        _rawEmail = data["email"] ?? "";
+        _rawMobile = data["mobile"] ?? "";
+
         _nameController.text = data["name"] ?? "";
-        _emailController.text = data["email"] ?? "";
-        _mobileController.text = data["mobile"] ?? "";
+        _emailController.text = _maskSensitiveData(_rawEmail, isEmail: true);
+        _mobileController.text = _maskSensitiveData(_rawMobile, isEmail: false);
+
         selectedClassId = data["class_id"]?.toString();
         _serverImageUrl = data["image"] ?? data["profile_photo_url"];
         _isClassSavedInStorage =
@@ -99,13 +112,10 @@ class _ProfilePageState extends State<ProfilePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-
           title: const Text("Access Denied"),
-
           content: const Text(
             "Only activated students can change profile photo.",
           ),
-
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -114,7 +124,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       );
-
       return;
     }
     final ImagePicker picker = ImagePicker();
@@ -140,8 +149,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   source: ImageSource.gallery,
                   imageQuality: 50,
                 );
-                if (image != null)
+                if (image != null) {
                   setState(() => _imageFile = File(image.path));
+                }
                 if (mounted) Navigator.pop(context);
               },
             ),
@@ -153,8 +163,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   source: ImageSource.camera,
                   imageQuality: 50,
                 );
-                if (image != null)
+                if (image != null) {
                   setState(() => _imageFile = File(image.path));
+                }
                 if (mounted) Navigator.pop(context);
               },
             ),
@@ -187,49 +198,65 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() => _isLoading = true);
     try {
+      String formEmailInput = _emailController.text.trim();
+      String updatedEmail =
+          (formEmailInput == _maskSensitiveData(_rawEmail, isEmail: true) ||
+              formEmailInput.isEmpty)
+          ? _rawEmail
+          : formEmailInput;
+
+      // Sending multi-part request data containing your raw _imageFile
       final data = await StudentService.updateProfile(
         name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
+        email: updatedEmail,
         classId: selectedClassId!,
         imageFile: _imageFile,
       );
 
       if (data['status'] == true) {
+        // 1. Persist the absolute newest data returned by the server locally
         await LocalStorageService.updateStudentData(data['student']);
 
         if (mounted) {
           setState(() {
             _isClassSavedInStorage = true;
+
+            // 2. Update server URL string (Double-check if this needs your API Base URL prefix!)
             _serverImageUrl =
                 data['student']['image'] ??
                 data['student']['profile_photo_url'];
+
+            // 3. Clear local file path ONLY after setting the newly received server URL safely
             _imageFile = null;
           });
 
           Messenger.show(
             context,
-            "Profile updated!",
+            "Profile updated successfully!",
             type: MessageType.success,
           );
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const StudentDashboardPage(),
-            ),
-          );
+          // 4. Instead of replacing the screen and causing structural UI blink,
+          // cleanly pop back to the dashboard. The dashboard should reload data on resume.
+          Navigator.pop(context);
         }
       } else {
-        if (mounted)
+        if (mounted) {
           Messenger.show(
             context,
-            data['message'] ?? "Failed",
+            data['message'] ?? "Failed to save profile changes",
             type: MessageType.error,
           );
+        }
       }
     } catch (e) {
-      if (mounted)
-        Messenger.show(context, "Error occurred", type: MessageType.error);
+      if (mounted) {
+        Messenger.show(
+          context,
+          "An unexpected error occurred",
+          type: MessageType.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -238,37 +265,49 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1FAF2),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          "Profile",
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: _isDataLoaded == false
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Column(
                 children: [
-                  _buildDataCard(
-                    child: _buildTextFieldRow("Full Name", _nameController),
+                  _buildProfileHeader(),
+                  const SizedBox(height: 30),
+                  _buildSectionLabel("Account Details"),
+                  _buildGroupedCard(
+                    children: [
+                      _buildTextFieldRow("Full Name", _nameController),
+                      _buildDivider(),
+                      _buildClassDropdown(),
+                      _buildDivider(),
+                      _buildTextFieldRow(
+                        "Phone",
+                        _mobileController,
+                        enabled: false,
+                      ),
+                      _buildDivider(),
+                      _buildTextFieldRow("Email", _emailController),
+                    ],
                   ),
-                  _buildDataCard(child: _buildClassDropdown()),
-                  _buildDataCard(
-                    child: _buildTextFieldRow(
-                      "Phone",
-                      _mobileController,
-                      enabled: false,
-                      mask: true,
-                    ),
-                  ),
-                  _buildDataCard(
-                    child: _buildTextFieldRow(
-                      "Email",
-                      _emailController,
-                      mask: true,
-                      isEmail: true,
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: SizedBox(
@@ -283,132 +322,213 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 25),
-                  _buildMenuCard(
-                    Icons.dashboard,
-                    "Go To Dashboard",
-                    const Color(0xFF1B75BB),
+                  const SizedBox(height: 35),
+                  _buildSectionLabel("Preferences & Actions"),
+                  _buildGroupedCard(
+                    children: [
+                      _buildMenuItem(
+                        Icons.dashboard_rounded,
+                        "Go To Dashboard",
+                        const Color(0xFF1B75BB),
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        Icons.favorite_rounded,
+                        "My Favourites",
+                        const Color(0xFFE91E63),
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        Icons.stars_rounded,
+                        "Subscription Info",
+                        const Color(0xFFFF9800),
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        Icons.article_rounded,
+                        "Terms & Conditions",
+                        const Color(0xFF607D8B),
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        Icons.share_rounded,
+                        "Share App",
+                        const Color(0xFF4CAF50),
+                      ),
+                      _buildDivider(),
+                      _buildMenuItem(
+                        Icons.logout_rounded,
+                        "Logout",
+                        Colors.redAccent,
+                      ),
+                    ],
                   ),
-                  _buildMenuCard(
-                    Icons.favorite,
-                    "My Favourites",
-                    const Color(0xFF1B75BB),
-                  ),
-                  _buildMenuCard(
-                    Icons.stars,
-                    "Subscription Info",
-                    const Color(0xFF1B75BB),
-                  ),
-                  _buildMenuCard(
-                    Icons.article,
-                    "Terms & Conditions",
-                    const Color(0xFF1B75BB),
-                  ),
-                  _buildMenuCard(
-                    Icons.share,
-                    "Share App",
-                    const Color(0xFF1B75BB),
-                  ),
-                  _buildMenuCard(Icons.logout, "Logout", Colors.redAccent),
                   const SizedBox(height: 40),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: _pickImage,
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 55,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: _imageFile != null
+                      ? FileImage(_imageFile!)
+                      : (_serverImageUrl != null && _serverImageUrl!.isNotEmpty
+                                ? NetworkImage(
+                                    "$_serverImageUrl?v=${DateTime.now().millisecondsSinceEpoch}",
+                                  )
+                                : null)
+                            as ImageProvider?,
+                  child:
+                      (_imageFile == null &&
+                          (_serverImageUrl == null || _serverImageUrl!.isEmpty))
+                      ? Icon(
+                          Icons.person_rounded,
+                          size: 50,
+                          color: Colors.grey[400],
+                        )
+                      : null,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B75BB),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                ),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+        const SizedBox(height: 15),
+        AnimatedBuilder(
+          animation: _nameController,
+          builder: (context, child) {
+            return Text(
+              _nameController.text.isEmpty
+                  ? "Student Name"
+                  : _nameController.text,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 5),
+        Text(
+          "Update your profile and settings",
+          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, bottom: 8, right: 24),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey[600],
+            letterSpacing: 1.2,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildGroupedCard({required List<Widget> children}) {
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 10,
-        bottom: 30,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)],
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    "Profile",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 48),
-            ],
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: _pickImage,
-            child: Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                CircleAvatar(
-                  radius: 52,
-                  backgroundColor: Colors.white24,
-                  child: CircleAvatar(
-                    radius: 48,
-                    backgroundColor: const Color(0xFF424242),
-                    backgroundImage: _imageFile != null
-                        ? FileImage(_imageFile!)
-                        : (_serverImageUrl != null &&
-                                      _serverImageUrl!.isNotEmpty
-                                  ? NetworkImage(
-                                      "$_serverImageUrl?v=${DateTime.now().millisecondsSinceEpoch}",
-                                    )
-                                  : null)
-                              as ImageProvider?,
-                    child:
-                        (_imageFile == null &&
-                            (_serverImageUrl == null ||
-                                _serverImageUrl!.isEmpty))
-                        ? const Icon(
-                            Icons.person,
-                            size: 60,
-                            color: Colors.white,
-                          )
-                        : null,
-                  ),
-                ),
-                const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.camera_alt,
-                    size: 18,
-                    color: Color(0xFF1B75BB),
-                  ),
-                ),
-              ],
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Divider(height: 1, color: Colors.grey[200]),
+    );
+  }
+
+  Widget _buildTextFieldRow(
+    String label,
+    TextEditingController controller, {
+    bool enabled = true,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            _nameController.text.isEmpty ? "Student" : _nameController.text,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Expanded(
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 15,
+                color: enabled ? Colors.black87 : Colors.grey[600],
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+              ),
             ),
           ),
         ],
@@ -417,171 +537,191 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildClassDropdown() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          "Class of Study",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: selectedClassId,
-              isExpanded: true,
-              hint: const Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  "Select Class",
-                  style: TextStyle(color: Colors.grey, fontSize: 14),
-                ),
+    // Exact theme color matched from your Save button
+    const Color themeBlue = Color(0xFF00B0FF);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 100, // Matches your other form label widths perfectly
+            child: Text(
+              "Class of Study",
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
-              icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
-              selectedItemBuilder: (BuildContext context) {
-                return classList.map<Widget>((item) {
-                  return Container(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      item['class'] ?? "",
-                      style: const TextStyle(color: Colors.black87),
-                    ),
-                  );
-                }).toList();
-              },
-              items: classList
-                  .map(
-                    (item) => DropdownMenuItem(
-                      value: item['id'].toString(),
+            ),
+          ),
+          const Spacer(), // Pushes the capsule selector all the way to the right
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 40, // Compact height for the capsule style
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(
+                20,
+              ), // Complete stadium/pill shape
+              border: Border.all(
+                color: themeBlue, // Vibrant blue border from your screenshot
+                width: 1.8,
+              ),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selectedClassId,
+                iconEnabledColor: themeBlue, // Tint the arrow blue
+                dropdownColor: Colors.white, // Background of the popup menu
+                borderRadius: BorderRadius.circular(
+                  20,
+                ), // Rounds the overlay menu box!
+                menuMaxHeight: 350, // Limits height so it scrolls cleanly
+                hint: const Text(
+                  "Select Class",
+                  style: TextStyle(color: Colors.grey, fontSize: 15),
+                ),
+                icon: const Padding(
+                  padding: EdgeInsets.only(left: 6),
+                  child: Icon(Icons.arrow_drop_down_rounded, size: 26),
+                ),
+                // Customizing how the selected text looks inside the button container
+                selectedItemBuilder: (BuildContext context) {
+                  return classList.map<Widget>((item) {
+                    return Center(
                       child: Text(
                         item['class'] ?? "",
                         style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
+                          color: Color.fromARGB(
+                            255,
+                            0,
+                            0,
+                            0,
+                          ), // Matching text selection color
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (val) => setState(() => selectedClassId = val),
+                    );
+                  }).toList();
+                },
+                items: classList
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item['id'].toString(),
+                        child: Text(
+                          item['class'] ?? "",
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (val) => setState(() => selectedClassId = val),
+              ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextFieldRow(
-    String label,
-    TextEditingController controller, {
-    bool enabled = true,
-    bool mask = false,
-    bool isEmail = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        Expanded(
-          child: TextField(
-            controller: mask
-                ? TextEditingController(
-                    text: _maskSensitiveData(controller.text, isEmail: isEmail),
-                  )
-                : controller,
-            enabled: enabled,
-            textAlign: TextAlign.right,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDataCard({required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: child,
     );
   }
 
-  Widget _buildMenuCard(IconData icon, String title, Color color) {
+  Widget _buildMenuItem(IconData icon, String title, Color iconColor) {
     final bool isLocked = title == "Go To Dashboard" && !_isClassSavedInStorage;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListTile(
-        leading: Icon(
-          isLocked ? Icons.lock_outline : icon,
-          color: isLocked ? Colors.grey : color,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            color: isLocked ? Colors.grey : Colors.black,
-          ),
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-        onTap: isLocked
-            ? () => Messenger.show(
-                context,
-                "Save profile to unlock.",
-                type: MessageType.error,
-              )
-            : () {
-                if (title == "Logout")
+
+    return InkWell(
+      onTap: isLocked
+          ? () => Messenger.show(
+              context,
+              "Save profile to unlock.",
+              type: MessageType.error,
+            )
+          : () {
+              switch (title) {
+                case "Logout":
                   _handleLogout(context);
-                else if (title == "Go To Dashboard")
+                  break;
+                case "Go To Dashboard":
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const StudentDashboardPage(),
                     ),
                   );
-                else if (title == "My Favourites")
+                  break;
+                case "My Favourites":
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const MyFavouritesPage(),
                     ),
                   );
-                else if (title == "Subscription Info")
+                  break;
+                case "Subscription Info":
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const SubscriptionPage(),
                     ),
                   );
-                else if (title == "Terms & Conditions")
+                  break;
+                case "Terms & Conditions":
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const TermsConditionsPage(),
                     ),
                   );
-              },
+                  break;
+                case "Share App":
+                  // Add your share functional implementation or helper package invocation here
+                  Messenger.show(
+                    context,
+                    "Sharing feature coming soon!",
+                    type: MessageType.success,
+                  );
+                  break;
+              }
+            },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isLocked ? Colors.grey[100] : iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isLocked ? Icons.lock_outline_rounded : icon,
+                color: isLocked ? Colors.grey : iconColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: isLocked
+                      ? Colors.grey
+                      : (title == "Logout" ? Colors.redAccent : Colors.black87),
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey[400],
+            ),
+          ],
+        ),
       ),
     );
   }

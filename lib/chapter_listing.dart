@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // 🔹 Added for caching
-import 'package:glapod/utils/app_colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'widgets.dart/appbar_page.dart';
 import 'video_listing.dart';
 import 'notes_listing.dart';
@@ -12,13 +11,14 @@ class SubjectDetailPage extends StatelessWidget {
   final String subjectId;
   final List<dynamic> chapters;
 
+  // Modern, energetic yet soft child-friendly theme colors
   final List<Color> themeColors = const [
-    Color(0xFF1A2B52),
-    Color(0xFF2E7D32),
-    Color(0xFFC62828),
-    Color(0xFF6A1B9A),
-    Color(0xFF00838F),
-    Color(0xFFEF6C00),
+    Color(0xFF4F46E5), // Indigo
+    Color(0xFF10B981), // Emerald Green
+    Color(0xFFF43F5E), // Rose Pink
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFFF59E0B), // Amber Orange
   ];
 
   const SubjectDetailPage({
@@ -31,25 +31,24 @@ class SubjectDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1FAF2),
-      appBar: CustomAppBar(height: 40, title: subjectName),
+      backgroundColor: const Color(0xFFF3F4F6), // Smooth off-white surface
+      appBar: CustomAppBar(height: 50, title: subjectName),
       body: chapters.isEmpty
           ? const EmptyStateWidget(msg: "No chapters available!")
           : ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        itemCount: chapters.length,
-        itemBuilder: (context, index) {
-          final selectedColor =
-          themeColors[index % themeColors.length];
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              itemCount: chapters.length,
+              itemBuilder: (context, index) {
+                final selectedColor = themeColors[index % themeColors.length];
 
-          return ChapterAccordionItem(
-            chapter: chapters[index],
-            subjectId: subjectId,
-            subjectName: subjectName,
-            activeColor: selectedColor,
-          );
-        },
-      ),
+                return ChapterAccordionItem(
+                  chapter: chapters[index],
+                  subjectId: subjectId,
+                  subjectName: subjectName,
+                  activeColor: selectedColor,
+                );
+              },
+            ),
     );
   }
 }
@@ -69,34 +68,45 @@ class ChapterAccordionItem extends StatefulWidget {
   });
 
   @override
-  State<ChapterAccordionItem> createState() =>
-      _ChapterAccordionItemState();
+  State<ChapterAccordionItem> createState() => _ChapterAccordionItemState();
 }
 
-class _ChapterAccordionItemState
-    extends State<ChapterAccordionItem> {
-  bool _isExpanded = true;
+class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final imageHeight = width * 0.22;
+    // 1. Read real flags directly from your API response schema
+    final bool showNotes = widget.chapter['notes'] == true;
+    final bool showSolutions = widget.chapter['solutions'] == true;
+    final bool showVideos = widget.chapter['videos'] == true;
 
-    final headerColor =
-    Color.lerp(widget.activeColor, Colors.black, 0.10)!;
+    // Optional upcoming database flags (Change to match your API keys later if needed)
+    final bool showPractice = widget.chapter['practice'] == true;
+    final bool showQuiz = widget.chapter['quiz'] == true;
+
+    // Check if there is absolutely nothing available inside this horizontal row
+    final bool isRowEntirelyEmpty =
+        !showNotes && !showSolutions && !showPractice && !showQuiz;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      margin:
-      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: _isExpanded ? headerColor : Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: _isExpanded
+              ? widget.activeColor.withOpacity(0.35)
+              : widget.activeColor.withOpacity(0.35),
+          width: 2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: widget.activeColor.withOpacity(_isExpanded ? 0.08 : 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -104,186 +114,348 @@ class _ChapterAccordionItemState
         data: Theme.of(context).copyWith(
           dividerColor: Colors.transparent,
           splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
         ),
         child: ExpansionTile(
-          initiallyExpanded: true,
+          initiallyExpanded: _isExpanded,
           onExpansionChanged: (expanded) {
             setState(() {
               _isExpanded = expanded;
             });
           },
-          iconColor: Colors.white,
-          collapsedIconColor: AppColors.textHeadingBlack,
-          tilePadding: const EdgeInsets.symmetric(
-              horizontal: 20, vertical: 5),
+          trailing: AnimatedRotation(
+            turns: _isExpanded ? 0.5 : 0,
+            duration: const Duration(milliseconds: 250),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: _isExpanded
+                  ? widget.activeColor
+                  : Colors.grey.shade100,
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: _isExpanded ? Colors.white : Colors.grey.shade600,
+                size: 22,
+              ),
+            ),
+          ),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: widget.activeColor.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.auto_stories_rounded,
+              color: widget.activeColor,
+              size: 22,
+            ),
+          ),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           title: Text(
-            (widget.chapter['title'] ?? "Untitled Chapter")
-                .toString()
-                .toUpperCase(),
+            (widget.chapter['title'] ?? "Untitled Chapter").toString(),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: _isExpanded
-                  ? Colors.white
-                  : AppColors.textHeadingBlack,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1F2937),
+              letterSpacing: .1,
             ),
           ),
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: widget.activeColor,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(15),
-                  bottomRight: Radius.circular(15),
-                ),
-              ),
-              padding:
-              const EdgeInsets.fromLTRB(15, 15, 15, 20),
-              child: Row(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image Section
-                  Expanded(
-                    flex: 5,
-                    child: ClipRRect(
-                      borderRadius:
-                      BorderRadius.circular(8),
-                      child: widget.chapter['image'] != null &&
-                          widget.chapter['image']
-                              .toString()
-                              .isNotEmpty
-                      // 🔹 REPLACED Image.network with CachedNetworkImage
-                          ? CachedNetworkImage(
-                        imageUrl: widget.chapter['image'],
-                        fit: BoxFit.cover,
-                        height: imageHeight,
-                        width: double.infinity,
-                        placeholder: (context, url) => Container(
-                          height: imageHeight,
-                          color: Colors.white10,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          height: imageHeight,
-                          color: Colors.white10,
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.white,
-                          ),
-                        ),
-                      )
-                          : Container(
-                        height: imageHeight,
-                        color: Colors.white10,
-                        child: const Icon(
-                          Icons.image,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1, color: Color(0xFFF3F4F6)),
                   ),
+                  const SizedBox(height: 16),
 
-                  SizedBox(width: width * 0.03),
-
-                  // Buttons Section
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                  // Top Graphic Row (Image + Learning Progress Tracking)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _buildPillButton(
-                          context,
-                          icon: Icons.edit_note_rounded,
-                          label: "Notes",
-                          bgColor:
-                          const Color(0xFFB3E5FC),
-                          iconBg:
-                          const Color(0xFF4FC3F7),
-                          isEnabled:
-                          widget.chapter['notes'] ==
-                              true,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  NotesListingPage(
-                                    chapterId: widget
-                                        .chapter['id']
-                                        .toString(),
-                                    chapterTitle: widget
-                                        .chapter['title']
-                                        .toString(),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child:
+                              widget.chapter['image'] != null &&
+                                  widget.chapter['image'].toString().isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: widget.chapter['image'],
+                                  fit: BoxFit.cover,
+                                  height: 85,
+                                  width: 85,
+                                  placeholder: (context, url) => Container(
+                                    height: 85,
+                                    width: 85,
+                                    color: Colors.grey.shade100,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: widget.activeColor,
+                                      ),
+                                    ),
                                   ),
-                            ),
-                          ),
+                                  errorWidget: (context, url, error) =>
+                                      Container(
+                                        height: 85,
+                                        width: 85,
+                                        color: Colors.grey.shade100,
+                                        child: Icon(
+                                          Icons.image_not_supported_rounded,
+                                          color: Colors.grey.shade400,
+                                        ),
+                                      ),
+                                )
+                              : Container(
+                                  height: 85,
+                                  width: 85,
+                                  color: widget.activeColor.withOpacity(0.05),
+                                  child: Icon(
+                                    Icons.image,
+                                    color: widget.activeColor,
+                                  ),
+                                ),
                         ),
-                        SizedBox(height: width * 0.02),
-                        _buildPillButton(
-                          context,
-                          icon: Icons.menu_book_rounded,
-                          label: "Solutions",
-                          bgColor:
-                          const Color(0xFFFFE0B2),
-                          iconBg:
-                          const Color(0xFFFFB74D),
-                          isEnabled: widget
-                              .chapter['solutions'] ==
-                              true,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ChapterSolutionsPage(
-                                    subjectId:
-                                    widget.subjectId,
-                                    chapterId: widget
-                                        .chapter['id']
-                                        .toString(),
-                                    chapterTitle: widget
-                                        .chapter['title'],
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Chapter Progress",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: LinearProgressIndicator(
+                                        value: 0.65,
+                                        minHeight: 10,
+                                        backgroundColor: widget.activeColor
+                                            .withOpacity(0.12),
+                                        valueColor: AlwaysStoppedAnimation(
+                                          widget.activeColor,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                            ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    "65%",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: widget.activeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 20),
 
-                  SizedBox(width: width * 0.02),
-
-                  // Video Button Section
-                  _buildVideoCircle(
-                    context,
-                    isEnabled:
-                    widget.chapter['videos'] ==
-                        true,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            VideoListingPage(
-                              chapterTitle:
-                              widget.chapter['title'] ??
-                                  "Videos",
-                              chapterId: widget
-                                  .chapter['id']
-                                  .toString(),
-                              subjectName:
-                              widget.subjectName,
+                  // 🌟 HORIZONTALLY SCROLLABLE OPTIONS ROW 🌟
+                  if (isRowEntirelyEmpty)
+                    // Playful placeholder shown ONLY if everything else is hidden
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text("🚀", style: TextStyle(fontSize: 20)),
+                            const SizedBox(width: 12),
+                            Text(
+                              "New learning adventures coming soon!",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
+                          ],
+                        ),
                       ),
+                    )
+                  else
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          // Conditionals completely remove widgets if flag is false
+                          if (showNotes)
+                            _buildActionCard(
+                              context,
+                              icon: Icons.edit_note_rounded,
+                              label: "Read Notes",
+                              description: "Quick summary",
+                              accentColor: const Color(0xFF3B82F6),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => NotesListingPage(
+                                    chapterId: widget.chapter['id'].toString(),
+                                    chapterTitle: widget.chapter['title']
+                                        .toString(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (showSolutions)
+                            _buildActionCard(
+                              context,
+                              icon: Icons.menu_book_rounded,
+                              label: "Solutions",
+                              description: "Step-by-step",
+                              accentColor: const Color(0xFF10B981),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChapterSolutionsPage(
+                                    subjectId: widget.subjectId,
+                                    chapterId: widget.chapter['id'].toString(),
+                                    chapterTitle: widget.chapter['title'],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (showPractice)
+                            _buildActionCard(
+                              context,
+                              icon: Icons.assignment_rounded,
+                              label: "Practice",
+                              description: "Test skill mock",
+                              accentColor: const Color(0xFFFF9800),
+                              onTap: () {},
+                            ),
+                          if (showQuiz)
+                            _buildActionCard(
+                              context,
+                              icon: Icons.emoji_events_rounded,
+                              label: "Daily Quiz",
+                              description: "Earn trophies",
+                              accentColor: const Color(0xFFEC4899),
+                              onTap: () {},
+                            ),
+                        ],
+                      ),
+                    ),
+
+                  // Only display video section or separation logic if video module is true
+                  if (showVideos) ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildVideoRowAction(
+                        context,
+                        accentColor: widget.activeColor,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => VideoListingPage(
+                              chapterTitle: widget.chapter['title'] ?? "Videos",
+                              chapterId: widget.chapter['id'].toString(),
+                              subjectName: widget.subjectName,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Horizontal Scroll Resource Item Card Component
+  Widget _buildActionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String description,
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 165,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: accentColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accentColor.withOpacity(0.15), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                      color: accentColor,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -295,80 +467,54 @@ class _ChapterAccordionItemState
     );
   }
 
-  Widget _buildPillButton(
-      BuildContext context, {
-        required IconData icon,
-        required String label,
-        required Color bgColor,
-        required Color iconBg,
-        required bool isEnabled,
-        required VoidCallback onTap,
-      }) {
-    final width = MediaQuery.of(context).size.width;
-
+  // Modernized Video Player CTA Block layout
+  Widget _buildVideoRowAction(
+    BuildContext context, {
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: isEnabled ? onTap : null,
-      child: Opacity(
-        opacity: isEnabled ? 1.0 : 0.4,
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius:
-            BorderRadius.circular(30),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [accentColor, accentColor.withOpacity(0.85)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: width * 0.035,
-                backgroundColor: iconBg,
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: width * 0.04,
-                ),
-              ),
-              SizedBox(width: width * 0.025),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow:
-                  TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: width * 0.032,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildVideoCircle(
-      BuildContext context, {
-        required bool isEnabled,
-        required VoidCallback onTap,
-      }) {
-    final width = MediaQuery.of(context).size.width;
-
-    return GestureDetector(
-      onTap: isEnabled ? onTap : null,
-      child: Opacity(
-        opacity: isEnabled ? 1.0 : 0.4,
-        child: CircleAvatar(
-          radius: width * 0.06,
-          backgroundColor:
-          const Color(0xFFFFCCBC),
-          child: Icon(
-            Icons.play_arrow_rounded,
-            color: Colors.deepOrange.shade400,
-            size: width * 0.08,
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircleAvatar(
+              radius: 16,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.play_arrow_rounded,
+                color: Color(0xFF1F2937),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Text(
+              "Watch Video Lessons",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: Colors.white,
+                letterSpacing: .2,
+              ),
+            ),
+          ],
         ),
       ),
     );

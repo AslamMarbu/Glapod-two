@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart'; // 🔹 Ensure this is in pubspec.yaml
+import 'package:shimmer/shimmer.dart';
 import '../providers/prediction_tense_provider.dart';
 import '../utils/app_colors.dart';
-import 'widgets.dart/appbar_page.dart';
 
 class PredictionTensePage extends StatefulWidget {
   final String level;
@@ -14,7 +13,8 @@ class PredictionTensePage extends StatefulWidget {
   State<PredictionTensePage> createState() => _PredictionTensePageState();
 }
 
-class _PredictionTensePageState extends State<PredictionTensePage> with SingleTickerProviderStateMixin {
+class _PredictionTensePageState extends State<PredictionTensePage>
+    with SingleTickerProviderStateMixin {
   late AnimationController _shakeController;
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _focusNodes = [];
@@ -24,17 +24,27 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
   String _v3Hint = "";
   bool _isInitialized = false;
 
+  final Color brandPurple = const Color(0xFF4A10B7);
+  final Color deepIndigoText = const Color(0xFF1E1066);
+  final Color lightCardPurple = const Color(0xFFF3F5FC);
+  final Color dividerLineColor = const Color(0xFFD6C8F4);
+
   @override
   void initState() {
     super.initState();
     _shakeController = AnimationController(
-        duration: const Duration(milliseconds: 500), vsync: this);
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
     Future.microtask(() => _fetchNewQuestion());
   }
 
   void _fetchNewQuestion({String? status}) {
     _resetLocalState();
-    context.read<PredictionTenseProvider>().loadQuestion(widget.level, status: status);
+    context.read<PredictionTenseProvider>().loadQuestion(
+      widget.level,
+      status: status,
+    );
   }
 
   void _resetLocalState() {
@@ -55,8 +65,8 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
     setState(() {
       _presentHint = (question['present'] ?? "").toString();
       _targetWord = newTarget;
-
-      _v3Hint = (question['future'] ?? question['past_participle'] ?? "---").toString();
+      _v3Hint = (question['future'] ?? question['past_participle'] ?? "---")
+          .toString();
 
       for (var c in _controllers) c.dispose();
       for (var f in _focusNodes) f.dispose();
@@ -71,7 +81,8 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
 
       if (widget.level.trim().toLowerCase() == "intermediate") {
         int hintCount = (cleanTarget.length / 3).ceil();
-        List<int> indices = List.generate(cleanTarget.length, (i) => i)..shuffle();
+        List<int> indices = List.generate(cleanTarget.length, (i) => i)
+          ..shuffle();
         for (int i = 0; i < hintCount; i++) {
           int targetIdx = indices[i];
           _controllers[targetIdx].text = cleanTarget[targetIdx];
@@ -131,51 +142,30 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
     final tense = context.watch<PredictionTenseProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
-      appBar: const CustomAppBar(height: 60, title: "Past Tense", isDashboard: false),
-      body: tense.isLoading
-          ? _buildShimmerLoading() // 🔹 UI remains same, just replaced the Spinner
-          : _buildBody(tense),
+      backgroundColor: const Color(0xFFF6F8FE),
+      body: tense.isLoading ? _buildShimmerLoading() : _buildBody(tense),
     );
   }
 
-  // 🔹 ADDED: Shimmer Method that mimics your exact UI layout
   Widget _buildShimmerLoading() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  Container(width: 100, height: 14, color: Colors.white),
-                  const SizedBox(height: 15),
-                  Container(width: 180, height: 75, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15))),
-                  const SizedBox(height: 40),
-                  Container(width: 100, height: 14, color: Colors.white),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 5,
-                    children: List.generate(6, (i) => Container(width: 32, height: 45, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)))),
-                  ),
-                ],
+      child: Column(
+        children: [
+          Container(height: 140, color: Colors.white),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                ),
               ),
             ),
-            const SizedBox(height: 50),
-            Container(width: double.infinity, height: 50, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10))),
-            const SizedBox(height: 20),
-            Container(width: 65, height: 65, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -185,7 +175,9 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
       return _buildStatusView(
         title: "Level Mastered!",
         message: "Fantastic! Level completed.",
-        icon: Icons.auto_awesome, iconColor: Colors.amber, buttonText: "Play Again",
+        icon: Icons.auto_awesome,
+        iconColor: Colors.amber,
+        buttonText: "Play Again",
         onBtnPressed: () => _fetchNewQuestion(status: "new"),
       );
     }
@@ -195,106 +187,298 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
       return _buildStatusView(
         title: "Sorry!",
         message: response?['message'] ?? "No more questions.",
-        icon: Icons.info_outline, iconColor: Colors.blue, buttonText: "Go Back",
+        icon: Icons.info_outline,
+        iconColor: Colors.blue,
+        buttonText: "Go Back",
         onBtnPressed: () => Navigator.pop(context),
       );
     }
 
     if (!_isInitialized && response['question'] != null) {
       Future.microtask(() => _setupGame(response['question']));
-      return _buildShimmerLoading(); // 🔹 Replaced spinner here too
+      return _buildShimmerLoading();
     }
 
     return Column(
       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, spreadRadius: 2)
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text("Base Form  [V1]", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
-                      const SizedBox(height: 15),
-                      _buildV1HintCard(),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [brandPurple, brandPurple.withOpacity(0.85)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 12,
+            bottom: 35,
+            left: 20,
+            right: 20,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              const Text(
+                "Past tense",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.grid_view_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
 
-                      if (widget.level.trim().toLowerCase() == "beginner")
-                        Padding(
-                          padding: const EdgeInsets.only(top: 20),
-                          child: Text(
-                              _targetWord,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 8, color: Color(0xFF1B75BB))
+        Expanded(
+          child: Transform.translate(
+            offset: const Offset(0, -20),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 32,
+                      horizontal: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    // ... inside _buildBody -> SingleChildScrollView -> Column ...
+                    child: Column(
+                      children: [
+                        _buildSectionHeader("Base Form [V1]"),
+                        const SizedBox(height: 24),
+                        _buildV1Card(),
+
+                        // --- INSERT BEGINNER ANSWER KEY HERE ---
+                        if (widget.level.trim().toLowerCase() ==
+                            "beginner") ...[
+                          const SizedBox(height: 20),
+                          Text(
+                            _targetWord.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
+                              color:
+                                  deepIndigoText, // Using your existing deepIndigoText color
+                            ),
+                          ),
+                        ],
+
+                        // ----------------------------------------
+                        const SizedBox(height: 28),
+                        _buildSectionHeader("Simple Past [V2]"),
+                        const SizedBox(height: 24),
+
+                        // Wrapped grid to dynamically scale down boxes
+                        SizedBox(
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.center,
+                            child: _buildInputGrid(),
                           ),
                         ),
-
-                      const SizedBox(height: 40),
-                      const Text("Simple Past [V2]", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
-                      const SizedBox(height: 20),
-                      _buildInputGrid(),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 50),
-                _buildV3Section(),
-                const SizedBox(height: 20),
-                _buildStatusIcon(),
-              ],
+                  const SizedBox(height: 20),
+                  _buildV3RowCard(),
+                ],
+              ),
             ),
           ),
         ),
-        _buildBottomButton(),
+        _buildBottomGradientAction(),
       ],
     );
   }
 
-  Widget _buildV1HintCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 45, vertical: 25),
-      decoration: BoxDecoration(
-          color: const Color(0xFFF7F9FF),
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))]
-      ),
-      child: Text(_presentHint.toUpperCase(),
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1B75BB), letterSpacing: 6)),
+  Widget _buildSectionHeader(String headingTitle) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(width: 20, height: 1.5, color: dividerLineColor),
+        const SizedBox(width: 6),
+        Icon(
+          Icons.diamond_outlined,
+          size: 10,
+          color: brandPurple.withOpacity(0.5),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Text(
+            headingTitle,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF3AA64C),
+            ),
+          ),
+        ),
+        Icon(
+          Icons.diamond_outlined,
+          size: 10,
+          color: brandPurple.withOpacity(0.5),
+        ),
+        const SizedBox(width: 6),
+        Container(width: 20, height: 1.5, color: dividerLineColor),
+      ],
     );
   }
 
-  Widget _buildV3Section() {
+  Widget _buildV1Card() {
+    return Container(
+      width: double.infinity,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 16),
+      decoration: BoxDecoration(
+        color: lightCardPurple,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Text(
+        _presentHint.toUpperCase(),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.w900,
+          color: deepIndigoText,
+          letterSpacing: 10, // Natural internal system letterspacing
+        ),
+      ),
+    );
+  }
+
+  Widget _buildV3RowCard() {
     String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
     String cleanTarget = _targetWord.replaceAll(" ", "");
     bool isCorrect = enteredWord == cleanTarget && cleanTarget.isNotEmpty;
     bool isBeginner = widget.level.trim().toLowerCase() == "beginner";
 
-    if (!isBeginner && !isCorrect) return const SizedBox(height: 60);
+    if (!isBeginner && !isCorrect) return const SizedBox.shrink();
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF4FF),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.green, width: 1),
+        color: const Color(0xFFEFF8F1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD4EED9), width: 1.5),
       ),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          children: [
-            const TextSpan(text: "Past Participle [V3]: ", style: TextStyle(color: Colors.green)),
-            TextSpan(text: _v3Hint.toUpperCase(), style: const TextStyle(color: Color(0xFF1B75BB))),
-          ],
-        ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 25,
+            backgroundColor: Color(0xFFD8F2DE),
+            child: Icon(
+              Icons.psychology_outlined,
+              color: Color(0xFF2E8A42),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Past Participle [V3]:",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2E8A42),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _v3Hint.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: deepIndigoText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeedbackRowCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF3FF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDBE4FF), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: const Color(0xFFDCE4FF),
+            child: Icon(Icons.chat_bubble, color: brandPurple, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "FEEDBACK",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: brandPurple,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  "Enter here...",
+                  style: TextStyle(fontSize: 15, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -303,17 +487,26 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
     return AnimatedBuilder(
       animation: _shakeController,
       builder: (context, child) {
-        double offset = _shakeController.isAnimating ? (0.5 - (0.5 - _shakeController.value).abs()) * 15 : 0.0;
+        double offset = _shakeController.isAnimating
+            ? (0.5 - (0.5 - _shakeController.value).abs()) * 15
+            : 0.0;
         return Transform.translate(
           offset: Offset(offset, 0),
-          child: Wrap(
-            spacing: 5,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(_targetWord.length, (i) {
-              if (_targetWord[i] == " ") return const SizedBox(width: 10);
-              int controllerIdx = _targetWord.substring(0, i).replaceAll(" ", "").length;
-              return _buildModernInputBox(controllerIdx);
+              if (_targetWord[i] == " ") return const SizedBox(width: 6);
+              int controllerIdx = _targetWord
+                  .substring(0, i)
+                  .replaceAll(" ", "")
+                  .length;
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 3,
+                ), // Reduced horizontal gaps
+                child: _buildModernInputBox(controllerIdx),
+              );
             }),
           ),
         );
@@ -324,22 +517,41 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
   Widget _buildModernInputBox(int index) {
     bool hasFocus = _focusNodes[index].hasFocus;
 
+    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
+    String correctWord = _targetWord.replaceAll(" ", "");
+
+    bool isCompleted = enteredWord.length == correctWord.length;
+    bool isCorrect = enteredWord == correctWord;
+
+    Color borderColor;
+
+    if (isCompleted) {
+      borderColor = isCorrect ? Colors.green : Colors.red;
+    } else {
+      borderColor = hasFocus ? brandPurple : const Color(0xFFD6DCED);
+    }
+
     return Container(
       width: 32,
-      height: 45,
+      height: 44,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
+        color: lightCardPurple,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: hasFocus ? const Color(0xFF1B75BB) : Colors.grey.shade300,
-            width: hasFocus ? 2.0 : 1.0),
+          color: borderColor,
+          width: isCompleted ? 2.2 : (hasFocus ? 1.8 : 1.2),
+        ),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
           Text(
             _controllers[index].text.toUpperCase(),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: deepIndigoText,
+            ),
           ),
           TextField(
             controller: _controllers[index],
@@ -351,7 +563,10 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
             autocorrect: false,
             style: const TextStyle(color: Colors.transparent),
             decoration: const InputDecoration(
-                counterText: "", border: InputBorder.none, isCollapsed: true),
+              counterText: "",
+              border: InputBorder.none,
+              isCollapsed: true,
+            ),
             onChanged: (value) {
               setState(() {});
               if (value.isNotEmpty) {
@@ -369,34 +584,57 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
     );
   }
 
-  Widget _buildStatusIcon() {
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    if (enteredWord.length != _targetWord.replaceAll(" ", "").length) return const SizedBox(height: 60);
-    bool isCorrect = enteredWord == _targetWord.replaceAll(" ", "");
-
-    return GestureDetector(
-      onTap: isCorrect ? null : _clearInputs,
-      child: Icon(isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-          color: isCorrect ? Colors.green : Colors.red, size: 65),
-    );
-  }
-
-  Widget _buildBottomButton() {
+  Widget _buildBottomGradientAction() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 40),
-      child: Center(
-        child: SizedBox(
-          width: 250,
-          child: GestureDetector(
-            onTap: _handleNext,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)]),
-                  borderRadius: BorderRadius.circular(40),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))]
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom > 0
+            ? MediaQuery.of(context).padding.bottom + 12
+            : 30,
+        left: 24,
+        right: 24,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 60,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [brandPurple, const Color(0xFF6A26DA)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: brandPurple.withOpacity(0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
               ),
-              child: const Center(child: Text("Next", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))),
+            ],
+          ),
+          child: ElevatedButton(
+            onPressed: _handleNext,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Next",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+              ],
             ),
           ),
         ),
@@ -404,7 +642,14 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
     );
   }
 
-  Widget _buildStatusView({required String title, required String message, required IconData icon, required Color iconColor, required String buttonText, required VoidCallback onBtnPressed}) {
+  Widget _buildStatusView({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Color iconColor,
+    required String buttonText,
+    required VoidCallback onBtnPressed,
+  }) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40.0),
@@ -413,15 +658,21 @@ class _PredictionTensePageState extends State<PredictionTensePage> with SingleTi
           children: [
             Icon(icon, size: 80, color: iconColor),
             const SizedBox(height: 20),
-            Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: onBtnPressed,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B75BB)),
-              child: Text(buttonText, style: const TextStyle(color: Colors.white)),
-            )
+              style: ElevatedButton.styleFrom(backgroundColor: brandPurple),
+              child: Text(
+                buttonText,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
           ],
         ),
       ),

@@ -33,18 +33,34 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
       setState(() {
         isUserRegistered = studentData != null;
         String statusStr = status.toString();
-        isLicenseExpired = statusStr.contains("expired") || statusStr.contains("trialExpired");
+        isLicenseExpired =
+            statusStr.contains("expired") || statusStr.contains("trialExpired");
       });
     }
   }
 
-  void _handleLogout() async {
+  void _handleLogout(BuildContext context) async {
+    try {
+      String deviceId = await DeviceService.getDeviceId();
+
+debugPrint("LOGOUT DEVICE ID => $deviceId");
+
+final result = await AuthService.logout(
+  deviceId: deviceId,
+);
+
+debugPrint("LOGOUT RESPONSE => $result");
+    } catch (e) {
+      debugPrint("LOGOUT ERROR => $e");
+    }
+
     await LocalStorageService.logOut();
-    if (mounted) {
+
+    if (context.mounted) {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const MyHomePage()),
-            (route) => false,
+        (route) => false,
       );
     }
   }
@@ -53,7 +69,11 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
   Future<void> _handleInitialCheck() async {
     final String code = codeController.text.trim();
     if (code.isEmpty) {
-      Messenger.show(context, 'Please enter purchase code', type: MessageType.error);
+      Messenger.show(
+        context,
+        'Please enter purchase code',
+        type: MessageType.error,
+      );
       return;
     }
 
@@ -91,13 +111,18 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
           backgroundColor: Colors.transparent,
           contentPadding: EdgeInsets.zero,
           insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           content: Container(
             width: double.maxFinite,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFF6BCF2E), width: 2), // Green Border
+              border: Border.all(
+                color: const Color(0xFF6BCF2E),
+                width: 2,
+              ), // Green Border
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -136,7 +161,11 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
                     Text(
                       apiMessage, // MESSAGE FROM API
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.4),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -158,7 +187,10 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
                       onPressed: () => Navigator.pop(context),
                       child: const Text(
                         "Cancel",
-                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -190,7 +222,9 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const ProfilePage(showSuccessMsg: true)),
+          MaterialPageRoute(
+            builder: (_) => const ProfilePage(showSuccessMsg: true),
+          ),
         );
       } else {
         Messenger.show(context, result['message'], type: MessageType.error);
@@ -222,11 +256,17 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
             ),
           ),
           Positioned(
-            top: -400, left: 0, right: -60, bottom: 490,
+            top: -400,
+            left: 0,
+            right: -60,
+            bottom: 490,
             child: Image.asset("assets/images/bot.jpeg", fit: BoxFit.cover),
           ),
           Positioned(
-            bottom: -60, left: -60, right: -40, top: 600,
+            bottom: -60,
+            left: -60,
+            right: -40,
+            top: 600,
             child: Image.asset("assets/images/top.jpeg", fit: BoxFit.fill),
           ),
           SafeArea(
@@ -237,37 +277,44 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
-                        decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 94, 157, 209),
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 28,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 94, 157, 209),
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Please enter key to continue',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Please enter key to continue',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                          ),
+                          const SizedBox(height: 20),
+                          TextField(
+                            controller: codeController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: const InputDecoration(
+                              hintText: 'Enter purchase code',
+                              hintStyle: TextStyle(color: Colors.white70),
+                              border: InputBorder.none,
                             ),
-                            const SizedBox(height: 20),
-                            TextField(
-                              controller: codeController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                hintText: 'Enter purchase code',
-                                hintStyle: TextStyle(color: Colors.white70),
-                                border: InputBorder.none,
-                              ),
-                            ),
-                            const Divider(color: Colors.white54, thickness: 1),
-                          ],
-                        )
+                          ),
+                          const Divider(color: Colors.white54, thickness: 1),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 35),
                     SizedBox(
@@ -276,21 +323,37 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
                       child: isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : GradientButton(
-                        text: 'Activate & Continue',
-                        gradient: const LinearGradient(colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)]),
-                        onPressed: _handleInitialCheck, // STARTS FLOW
-                      ),
+                              text: 'Activate & Continue',
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
+                              ),
+                              onPressed: _handleInitialCheck, // STARTS FLOW
+                            ),
                     ),
                     const SizedBox(height: 30),
                     if (isLicenseExpired)
                       TextButton(
-                        onPressed: _handleLogout,
-                        child: const Text('Logout', style: TextStyle(color: Color(0xFF1B75BB), fontWeight: FontWeight.bold, fontSize: 16)),
+                        onPressed: () => _handleLogout(context),
+                        child: const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Color(0xFF1B75BB),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                       )
                     else
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('Click here to go back', style: TextStyle(color: Color.fromARGB(255, 66, 180, 70), fontWeight: FontWeight.bold, fontSize: 16)),
+                        child: const Text(
+                          'Click here to go back',
+                          style: TextStyle(
+                            color: Color.fromARGB(255, 66, 180, 70),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                   ],
                 ),

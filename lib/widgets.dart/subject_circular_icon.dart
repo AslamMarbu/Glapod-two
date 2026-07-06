@@ -43,10 +43,7 @@ class CircularIconButton extends StatelessWidget {
     }
 
     if (page != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => page!),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page!));
       return;
     }
 
@@ -54,10 +51,7 @@ class CircularIconButton extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PdfViewerPage(
-            url: url!.trim(),
-            title: label,
-          ),
+          builder: (_) => PdfViewerPage(url: url!.trim(), title: label),
         ),
       );
       return;
@@ -77,9 +71,9 @@ class CircularIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // 🔹 Responsive scaling (safe)
     final width = MediaQuery.of(context).size.width;
-    final iconSize = width * 0.06;     // ~24 on phones
+    final iconSize = width < 400 ? 22.0 : 24.0; // ~24 on phones
     final paddingSize = width * 0.025; // ~10
-    final textSize = width * 0.025;    // ~10
+    final textSize = width < 400 ? 11.5 : 12.5; // ~10
 
     if (isLoading) {
       return _buildShimmerPlaceholder(width);
@@ -103,12 +97,12 @@ class CircularIconButton extends StatelessWidget {
                 color: isEnabled ? backgroundColor : Colors.grey.shade300,
                 boxShadow: isEnabled
                     ? [
-                  BoxShadow(
-                    color: backgroundColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  )
-                ]
+                        BoxShadow(
+                          color: backgroundColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
                     : null,
               ),
               child: Icon(
@@ -126,9 +120,7 @@ class CircularIconButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: textSize,
                 fontWeight: FontWeight.w600,
-                color: isEnabled
-                    ? AppColors.textHeadingBlack
-                    : Colors.grey,
+                color: isEnabled ? AppColors.textHeadingBlack : Colors.grey,
               ),
             ),
           ],

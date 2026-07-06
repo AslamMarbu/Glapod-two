@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart'; // Ensure this is in pubspec.yaml
+import 'package:shimmer/shimmer.dart';
 import '../providers/prediction_opposite_provider.dart';
 import '../utils/app_colors.dart';
-import 'widgets.dart/appbar_page.dart';
 
 class PredictionOppositePage extends StatefulWidget {
   final String level;
@@ -14,7 +13,8 @@ class PredictionOppositePage extends StatefulWidget {
   State<PredictionOppositePage> createState() => _PredictionOppositePageState();
 }
 
-class _PredictionOppositePageState extends State<PredictionOppositePage> with SingleTickerProviderStateMixin {
+class _PredictionOppositePageState extends State<PredictionOppositePage>
+    with SingleTickerProviderStateMixin {
   late AnimationController _shakeController;
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _focusNodes = [];
@@ -26,13 +26,19 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
   @override
   void initState() {
     super.initState();
-    _shakeController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
     Future.microtask(() => _fetchNewQuestion());
   }
 
   void _fetchNewQuestion({String? status}) {
     _resetLocalState();
-    context.read<PredictionOppositeProvider>().loadQuestion(widget.level, status: status);
+    context.read<PredictionOppositeProvider>().loadQuestion(
+      widget.level,
+      status: status,
+    );
   }
 
   void _resetLocalState() {
@@ -71,7 +77,8 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
 
       if (widget.level.toLowerCase() == "intermediate") {
         int hintCount = (cleanTarget.length / 3).ceil();
-        List<int> indices = List.generate(cleanTarget.length, (i) => i)..shuffle();
+        List<int> indices = List.generate(cleanTarget.length, (i) => i)
+          ..shuffle();
         for (int i = 0; i < hintCount; i++) {
           int targetIdx = indices[i];
           _controllers[targetIdx].text = cleanTarget[targetIdx];
@@ -99,10 +106,14 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
 
   void _handleNext() {
     String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    if (enteredWord != _targetWord.replaceAll(" ", "")) {
+    String cleanTarget = _targetWord.replaceAll(" ", "");
+
+    if (enteredWord != cleanTarget) {
       _triggerShake();
       return;
     }
+
+    FocusScope.of(context).unfocus();
     _fetchNewQuestion();
   }
 
@@ -111,14 +122,6 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
       _shakeController.forward(from: 0.0);
       HapticFeedback.vibrate();
     }
-  }
-
-  void _clearInputs() {
-    for (var controller in _controllers) {
-      controller.clear();
-    }
-    setState(() {});
-    _focusFirstEmpty();
   }
 
   @override
@@ -134,53 +137,44 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     final opp = context.watch<PredictionOppositeProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFF),
-      appBar: const CustomAppBar(height: 60, title: "Antonyms", isDashboard: false),
-      // 🔹 Shimmer is called here without changing the rest of the file
-      body: opp.isLoading
-          ? _buildShimmerLoading()
-          : _buildBody(opp),
-    );
-  }
-
-  // 🔹 ADDED: Shimmer skeleton that matches your UI proportions
-  Widget _buildShimmerLoading() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 40),
+      backgroundColor: const Color(0xFFF5F5FA),
+      body: SafeArea(
         child: Column(
           children: [
-            Center(
-              child: Container(
-                width: 200,
-                height: 70,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-              ),
-            ),
-            const SizedBox(height: 70),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Wrap(
-                spacing: 5,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
-                children: List.generate(6, (index) => Container(
-                  width: 32,
-                  height: 45,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
-                )),
-              ),
-            ),
-            const SizedBox(height: 40),
-            Container(
-              width: 65,
-              height: 65,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            _buildAppBar(),
+            Expanded(
+              child: opp.isLoading ? _buildShimmerLoading() : _buildBody(opp),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return Container(
+      color: const Color(0xFF4A148C),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const Text(
+            "Antonyms",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.apps, color: Colors.white, size: 28),
+            onPressed: () {},
+          ),
+        ],
       ),
     );
   }
@@ -189,8 +183,11 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     if (opp.isCompleted) {
       return _buildStatusView(
         title: "Level Completed!",
-        message: "Outstanding! You have found all the opposite words in this level.",
-        icon: Icons.emoji_events_rounded, iconColor: Colors.orangeAccent, buttonText: "Play Again",
+        message:
+            "Outstanding! You have found all the opposite words in this level.",
+        icon: Icons.emoji_events_rounded,
+        iconColor: Colors.orangeAccent,
+        buttonText: "Play Again",
         onBtnPressed: () => _fetchNewQuestion(status: "new"),
       );
     }
@@ -199,8 +196,12 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     if (response == null || response['status'].toString() == "false") {
       return _buildStatusView(
         title: "No More Questions",
-        message: response?['message'] ?? "You've caught up with all questions for now!",
-        icon: Icons.check_circle_outline_rounded, iconColor: Colors.green, buttonText: "Go Back",
+        message:
+            response?['message'] ??
+            "You've caught up with all questions for now!",
+        icon: Icons.check_circle_outline_rounded,
+        iconColor: Colors.green,
+        buttonText: "Go Back",
         onBtnPressed: () => Navigator.pop(context),
       );
     }
@@ -208,32 +209,68 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     _setupGame(response['question']);
     if (_targetWord.isEmpty) return const SizedBox.shrink();
 
+    bool isBeginner = widget.level.toLowerCase() == "beginner";
+
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: Column(
               children: [
-                _buildHintCard(),
-                if (widget.level.toLowerCase() == "beginner")
-                  Padding(
-                    padding: const EdgeInsets.only(top: 20),
-                    child: Text(
-                        _targetWord,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 4,
-                            color: Colors.green
-                        )
-                    ),
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 50),
-                _buildInputGrid(),
-                const SizedBox(height: 40),
-                _buildStatusIcon(),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 36,
+                    horizontal: 16,
+                  ),
+                  child: Column(
+                    children: [
+                      _buildHintCard(),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "♦♦♦♦♦  ",
+                            style: TextStyle(color: Colors.green, fontSize: 10),
+                          ),
+                          Text(
+                            "Antonym",
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          const Text(
+                            "  ♦♦♦♦",
+                            style: TextStyle(color: Colors.green, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _buildInputGrid(),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (isBeginner) ...[
+                  _buildRemarksCard(),
+                  const SizedBox(height: 16),
+                ],
+                _buildFeedbackCard(),
               ],
             ),
           ),
@@ -243,26 +280,70 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     );
   }
 
+  Widget _buildHintCard() {
+    if (_wordHint.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F2FD),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        _wordHint.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF1B1A55),
+          letterSpacing: 6,
+        ),
+      ),
+    );
+  }
+
   Widget _buildInputGrid() {
     return AnimatedBuilder(
       animation: _shakeController,
       builder: (context, child) {
-        double offset = _shakeController.isAnimating ? (0.5 - (0.5 - _shakeController.value).abs()) * 15 : 0.0;
+        double offset = _shakeController.isAnimating
+            ? (0.5 - (0.5 - _shakeController.value).abs()) * 15
+            : 0.0;
         return Transform.translate(
           offset: Offset(offset, 0),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Wrap(
-              spacing: 5,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: List.generate(_targetWord.length, (i) {
-                if (_targetWord[i] == " ") {
-                  return const SizedBox(width: 10);
-                }
-                int controllerIdx = _targetWord.substring(0, i).replaceAll(" ", "").length;
-                return _buildModernInputBox(controllerIdx);
-              }),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                int totalLetters = _targetWord.replaceAll(" ", "").length;
+
+                double spacing = totalLetters > 8 ? 4.0 : 6.0;
+                double boxWidth = totalLetters > 8 ? 30.0 : 34.0;
+                double boxHeight = boxWidth * 1.35;
+                double fontSize = totalLetters > 8 ? 18.0 : 22.0;
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_targetWord.length, (i) {
+                    if (_targetWord[i] == " ") {
+                      return const SizedBox(width: 8);
+                    }
+                    int controllerIdx = _targetWord
+                        .substring(0, i)
+                        .replaceAll(" ", "")
+                        .length;
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: spacing / 2),
+                      child: _buildModernInputBox(
+                        controllerIdx,
+                        boxWidth,
+                        boxHeight,
+                        fontSize,
+                      ),
+                    );
+                  }),
+                );
+              },
             ),
           ),
         );
@@ -270,25 +351,54 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     );
   }
 
-  Widget _buildModernInputBox(int index) {
-    bool hasFocus = _focusNodes[index].hasFocus;
+  Widget _buildModernInputBox(
+    int index,
+    double width,
+    double height,
+    double fontSize,
+  ) {
+    Color borderColor = Colors.purple.shade100;
+    double borderWidth = 1.0;
+    BorderRadius borderRadius = BorderRadius.circular(6);
+
+    String currentText = _controllers[index].text.toUpperCase();
+    String cleanTarget = _targetWord.replaceAll(" ", "");
+
+    // 🔹 Real-time Border Logic
+    if (currentText.isNotEmpty) {
+      String expectedChar = cleanTarget[index];
+      if (currentText == expectedChar) {
+        borderColor = Colors.green.shade600;
+        borderWidth = 2.0;
+        borderRadius = BorderRadius.circular(8);
+      } else {
+        borderColor = Colors.red.shade600;
+        borderWidth = 2.0;
+        borderRadius = BorderRadius.circular(8);
+      }
+    } else if (_focusNodes[index].hasFocus) {
+      borderColor = const Color(0xFF4A148C);
+      borderWidth = 1.5;
+    }
 
     return Container(
-      width: 32,
-      height: 45,
+      width: width,
+      height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-            color: hasFocus ? const Color(0xFF1B75BB) : Colors.grey.shade300,
-            width: hasFocus ? 2.0 : 1.0),
+        color: const Color(0xFFF3F2FD),
+        borderRadius: borderRadius,
+        border: Border.all(color: borderColor, width: borderWidth),
       ),
       child: Stack(
         alignment: Alignment.center,
         children: [
           Text(
-            _controllers[index].text.toUpperCase(),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            currentText,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF1B1A55),
+            ),
           ),
           TextField(
             controller: _controllers[index],
@@ -300,7 +410,10 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
             autocorrect: false,
             style: const TextStyle(color: Colors.transparent),
             decoration: const InputDecoration(
-                counterText: "", border: InputBorder.none, isCollapsed: true),
+              counterText: "",
+              border: InputBorder.none,
+              isCollapsed: true,
+            ),
             onChanged: (value) {
               setState(() {});
               if (value.isNotEmpty) {
@@ -318,70 +431,209 @@ class _PredictionOppositePageState extends State<PredictionOppositePage> with Si
     );
   }
 
-  Widget _buildHintCard() {
+  Widget _buildRemarksCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 45, vertical: 25),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))]),
-      child: Text(_wordHint.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1B75BB), letterSpacing: 4)),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.green.shade700,
+            child: const Icon(Icons.psychology, color: Colors.white),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "REMARKS",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                "Synonyms",
+                style: TextStyle(
+                  color: Colors.green.shade800,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                _targetWord.isNotEmpty ? _targetWord : "...",
+                style: const TextStyle(color: Colors.black87, fontSize: 16),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatusIcon() {
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    if (enteredWord.length != _targetWord.replaceAll(" ", "").length) return const SizedBox(height: 70);
-    bool isCorrect = enteredWord == _targetWord.replaceAll(" ", "");
-
-    return GestureDetector(
-      onTap: isCorrect ? null : _clearInputs,
-      child: Icon(
-          isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-          color: isCorrect ? Colors.green : Colors.red,
-          size: 65
+  Widget _buildFeedbackCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEBF3FE),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.blue.shade700,
+            child: const Icon(
+              Icons.chat_bubble_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "FEEDBACK",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                "Enter here...",
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBottomButton() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 50),
-      child: Center(
-        child: SizedBox(
-          width: 180,
-          child: GestureDetector(
-            onTap: _handleNext,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)]), borderRadius: BorderRadius.circular(30)),
-              child: const Center(child: Text("Next", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24, top: 10),
+      child: GestureDetector(
+        onTap: _handleNext,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF311B92), Color(0xFF512DA8)],
             ),
+            borderRadius: BorderRadius.circular(32),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Next  ",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              Icon(Icons.arrow_forward, color: Colors.white, size: 22),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatusView({required String title, required String message, required IconData icon, required Color iconColor, required String buttonText, required VoidCallback onBtnPressed}) {
+  Widget _buildShimmerLoading() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 80,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusView({
+    required String title,
+    required String message,
+    required IconData icon,
+    required Color iconColor,
+    required String buttonText,
+    required VoidCallback onBtnPressed,
+  }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(padding: const EdgeInsets.all(25), decoration: BoxDecoration(color: iconColor.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, size: 80, color: iconColor)),
-            const SizedBox(height: 30),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF2D3142))),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey.shade600, height: 1.5)),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B75BB), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), padding: const EdgeInsets.symmetric(vertical: 18), elevation: 0),
-                onPressed: onBtnPressed,
-                child: Text(buttonText, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            )
-          ],
+        padding: const EdgeInsets.all(32.0),
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 70, color: iconColor),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A148C),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: onBtnPressed,
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

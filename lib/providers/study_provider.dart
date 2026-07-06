@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/student_service.dart';
 import '../storage/local_storage_service.dart';
+import '../utils/api_cache_service.dart';
 
 class StudyProvider with ChangeNotifier {
   List<dynamic> _subjects = [];
   bool _isLoading = false;
   String _savedClassId = '';
 
-  // Getters
   List<dynamic> get subjects => _subjects;
   bool get isLoading => _isLoading;
   String get savedClassId => _savedClassId;
@@ -17,17 +17,41 @@ class StudyProvider with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      // 1. Fetch Class ID from Local Storage
+      // Get student data
       final studentData = await LocalStorageService.getStudent();
+
+      debugPrint("================================");
+      debugPrint("Student Data: $studentData");
+
       _savedClassId = studentData?['class_id']?.toString() ?? "3";
 
-      // 2. Fetch data from the API
-      // (The Dio Interceptor will handle the cache behind the scenes)
-      final List<dynamic> freshData = await StudentService.fetchSubjects(_savedClassId);
+      debugPrint("Selected Class ID: $_savedClassId");
+
+      // Clear old cached subjects
+      await ApiCacheService.clearCache(
+        '/api/study/get-subjects/$_savedClassId',
+      );
+
+      // Fetch fresh subjects from server
+      final List<dynamic> freshData = await StudentService.fetchSubjects(
+        _savedClassId,
+      );
+
+      debugPrint("Subjects Count: ${freshData.length}");
+
+      if (freshData.isNotEmpty) {
+        debugPrint("First Subject: ${freshData.first}");
+      } else {
+        debugPrint("No subjects returned from API");
+      }
 
       _subjects = freshData;
-    } catch (e) {
+
+      debugPrint("Stored Subjects Count: ${_subjects.length}");
+      debugPrint("================================");
+    } catch (e, stackTrace) {
       debugPrint("Error in loadSubjects: $e");
+      debugPrint("Stack Trace: $stackTrace");
     } finally {
       _isLoading = false;
       notifyListeners();
