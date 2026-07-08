@@ -41,7 +41,7 @@ class _StudyState extends State<Study> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1FAF2),
       appBar: const CustomAppBar(
-        height: 40,
+        height: 70,
         title: "Study",
         isDashboard: false,
       ),

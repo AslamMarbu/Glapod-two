@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart'; // 🔹 Import Shimmer
 import '../providers/prediction_name_provider.dart';
 import '../services/student_service.dart';
+import 'widgets.dart/appbar_page.dart';
 
 class PredictionNameGridPage extends StatefulWidget {
   final String categoryName;
@@ -61,42 +62,15 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFF),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)]),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Text(
-                    "${widget.categoryName} - Grid",
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white, size: 22),
-                    onPressed: _fetchGridData,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+
+      appBar: CustomAppBar(
+        height: 70,
+        title: "${widget.categoryName} - Grid",
+        isDashboard: false,
       ),
+
       body: _isLoading
-          ? _buildShimmerGrid() // 🔹 Swapped ProgressIndicator for Shimmer
+          ? _buildShimmerGrid()
           : _errorMessage != null
           ? _buildErrorView()
           : _buildGridView(),
@@ -147,7 +121,8 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
       itemBuilder: (context, index) {
         final item = _questions[index];
         final bool isAttended = item['is_attended'] ?? false;
-        final String? imageUrl = item['images'] != null && item['images'].isNotEmpty
+        final String? imageUrl =
+            item['images'] != null && item['images'].isNotEmpty
             ? item['images'][0]
             : null;
 
@@ -161,7 +136,9 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isAttended ? const Color(0xFF6BCF2E) : const Color(0xFF1B75BB).withOpacity(0.3),
+                color: isAttended
+                    ? const Color(0xFF6BCF2E)
+                    : const Color(0xFF1B75BB).withOpacity(0.3),
                 width: isAttended ? 3.5 : 1.5,
               ),
               boxShadow: [
@@ -169,7 +146,7 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
                   color: Colors.black.withOpacity(0.05),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
-                )
+                ),
               ],
             ),
             child: ClipRRect(
@@ -182,7 +159,7 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
                       imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.broken_image, color: Colors.grey),
+                          const Icon(Icons.broken_image, color: Colors.grey),
                     )
                   else
                     const Icon(Icons.image, color: Colors.grey),
@@ -191,10 +168,15 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
                     top: 0,
                     left: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: const BoxDecoration(
                         color: Colors.black54,
-                        borderRadius: BorderRadius.only(bottomRight: Radius.circular(8)),
+                        borderRadius: BorderRadius.only(
+                          bottomRight: Radius.circular(8),
+                        ),
                       ),
                       child: Text(
                         "${index + 1}",
@@ -217,7 +199,11 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
                           color: Color(0xFF6BCF2E),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.check, size: 14, color: Colors.white),
+                        child: const Icon(
+                          Icons.check,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                 ],

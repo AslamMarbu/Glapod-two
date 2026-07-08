@@ -104,12 +104,23 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     }
   }
 
+  // 🔹 Hides keyboard and clears out entry on error mismatch
+  void _clearInputsOnError() {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    for (var controller in _controllers) {
+      controller.clear();
+    }
+    setState(() {});
+  }
+
   void _handleNext() {
     String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
     String cleanTarget = _targetWord.replaceAll(" ", "");
 
     if (enteredWord != cleanTarget) {
       _triggerShake();
+      _clearInputsOnError(); // 👈 Hides keyboard and resets grid input fields
       return;
     }
 
@@ -238,39 +249,27 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
                   child: Column(
                     children: [
                       _buildHintCard(),
+
+                      if (isBeginner) ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          _targetWord.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF4A148C),
+                            letterSpacing: 3,
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            "♦♦♦♦♦  ",
-                            style: TextStyle(color: Colors.green, fontSize: 10),
-                          ),
-                          Text(
-                            "Antonym",
-                            style: TextStyle(
-                              color: Colors.green.shade700,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
-                          const Text(
-                            "  ♦♦♦♦",
-                            style: TextStyle(color: Colors.green, fontSize: 10),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
+
                       _buildInputGrid(),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (isBeginner) ...[
-                  _buildRemarksCard(),
-                  const SizedBox(height: 16),
-                ],
-                _buildFeedbackCard(),
               ],
             ),
           ),
@@ -364,7 +363,6 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     String currentText = _controllers[index].text.toUpperCase();
     String cleanTarget = _targetWord.replaceAll(" ", "");
 
-    // 🔹 Real-time Border Logic
     if (currentText.isNotEmpty) {
       String expectedChar = cleanTarget[index];
       if (currentText == expectedChar) {
@@ -381,52 +379,73 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
       borderWidth = 1.5;
     }
 
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F2FD),
-        borderRadius: borderRadius,
-        border: Border.all(color: borderColor, width: borderWidth),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            currentText,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFF1B1A55),
-            ),
-          ),
-          TextField(
-            controller: _controllers[index],
-            focusNode: _focusNodes[index],
-            textAlign: TextAlign.center,
-            maxLength: 1,
-            showCursor: false,
-            enableSuggestions: false,
-            autocorrect: false,
-            style: const TextStyle(color: Colors.transparent),
-            decoration: const InputDecoration(
-              counterText: "",
-              border: InputBorder.none,
-              isCollapsed: true,
-            ),
-            onChanged: (value) {
+    // Wrap Box in a KeyboardListener to track backspaces in the middle of typing
+    return KeyboardListener(
+      focusNode: FocusNode(skipTraversal: true),
+      onKeyEvent: (KeyEvent event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.backspace) {
+            // If field is empty and backspace pressed, drop focus backward
+            if (_controllers[index].text.isEmpty && index > 0) {
+              _focusNodes[index - 1].requestFocus();
+              _controllers[index - 1].clear();
               setState(() {});
-              if (value.isNotEmpty) {
-                int nextIndex = index + 1;
-                if (nextIndex < _controllers.length) {
-                  _focusNodes[nextIndex].requestFocus();
+            }
+          }
+        }
+      },
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F2FD),
+          borderRadius: borderRadius,
+          border: Border.all(color: borderColor, width: borderWidth),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              currentText,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF1B1A55),
+              ),
+            ),
+            TextField(
+              controller: _controllers[index],
+              focusNode: _focusNodes[index],
+              textAlign: TextAlign.center,
+              maxLength: 1,
+              showCursor: false,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.transparent),
+              decoration: const InputDecoration(
+                counterText: "",
+                border: InputBorder.none,
+                isCollapsed: true,
+              ),
+              onChanged: (value) {
+                setState(() {});
+                if (value.isNotEmpty) {
+                  int nextIndex = index + 1;
+                  if (nextIndex < _controllers.length) {
+                    _focusNodes[nextIndex].requestFocus();
+                  } else {
+                    _focusNodes[index].unfocus();
+                  }
                 } else {
-                  _focusNodes[index].unfocus();
+                  // Fallback regular backspace navigation when deleting populated boxes
+                  if (index > 0) {
+                    _focusNodes[index - 1].requestFocus();
+                  }
                 }
-              }
-            },
-          ),
-        ],
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

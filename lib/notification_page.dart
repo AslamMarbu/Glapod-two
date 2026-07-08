@@ -23,7 +23,10 @@ class NotificationPage extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
-                child: Text("Error: ${snapshot.error}", textAlign: TextAlign.center),
+                child: Text(
+                  "Error: ${snapshot.error}",
+                  textAlign: TextAlign.center,
+                ),
               ),
             );
           }
@@ -33,8 +36,10 @@ class NotificationPage extends StatelessWidget {
 
           if (notifications.isEmpty) {
             return const Center(
-              child: Text("No notifications yet",
-                  style: TextStyle(color: Colors.grey, fontSize: 16)),
+              child: Text(
+                "No notifications yet",
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
             );
           }
 
@@ -71,10 +76,7 @@ class NotificationPage extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 8, right: 12),
-            child: CircleAvatar(
-              radius: 4,
-              backgroundColor: Colors.redAccent,
-            ),
+            child: CircleAvatar(radius: 4, backgroundColor: Colors.redAccent),
           ),
           Expanded(
             child: Column(
@@ -82,7 +84,10 @@ class NotificationPage extends StatelessWidget {
               children: [
                 Text(
                   data['title']?.toString() ?? "Notification",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(

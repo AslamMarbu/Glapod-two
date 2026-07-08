@@ -6,6 +6,7 @@ import '../providers/prediction_name_provider.dart';
 import '../services/student_service.dart';
 import '../utils/app_colors.dart';
 import 'prediction_name_grid_page.dart';
+import 'widgets.dart/appbar_page.dart';
 
 // --- REUSABLE SHIMMER COMPONENT ---
 class ShimmerPlaceholder extends StatelessWidget {
@@ -223,80 +224,49 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(70),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF231E70), Color(0xFF38238C)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                children: [
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: () => Navigator.pop(context),
+
+      appBar: CustomAppBar(
+        height: 70,
+        title: widget.categoryName,
+        isDashboard: false,
+        customActions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(15),
+              onTap: () {
+                setState(() => _isInitialized = false);
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PredictionNameGridPage(
+                      categoryName: widget.categoryName,
+                      categoryId: widget.categoryId,
+                      level: widget.level,
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Text(
-                    widget.categoryName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    height: 40,
-                    width: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.grid_view_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      onPressed: () {
-                        setState(() => _isInitialized = false);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (routeContext) => PredictionNameGridPage(
-                              categoryName: widget.categoryName,
-                              categoryId: widget.categoryId,
-                              level: widget.level,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                );
+              },
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.15),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.white.withOpacity(.25)),
+                ),
+                child: const Icon(
+                  Icons.grid_view_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
+
       body: game.isLoading ? _buildShimmerLoading() : _buildGameContent(game),
     );
   }

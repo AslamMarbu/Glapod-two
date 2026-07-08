@@ -78,20 +78,24 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       });
 
       final dir = await getTemporaryDirectory();
-      final fileName = "${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf";
+      final fileName =
+          "${widget.title.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf";
       final savePath = '${dir.path}/$fileName';
 
-      await Dio().download(widget.url, savePath, onReceiveProgress: (received, total) {
-        if (total != -1) {
-          setState(() {
-            _status = "Downloading: ${(received / total * 100).toStringAsFixed(0)}%";
-          });
-        }
-      });
-
-      _pdfController = PdfController(
-        document: PdfDocument.openFile(savePath),
+      await Dio().download(
+        widget.url,
+        savePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) {
+            setState(() {
+              _status =
+                  "Downloading: ${(received / total * 100).toStringAsFixed(0)}%";
+            });
+          }
+        },
       );
+
+      _pdfController = PdfController(document: PdfDocument.openFile(savePath));
 
       setState(() => _isLoading = false);
     } catch (e) {
@@ -120,13 +124,22 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0A6ED1)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0A6ED1),
+            ),
             onPressed: () {
               final int? target = int.tryParse(_tempPageController.text);
               if (target != null && target > 0 && target <= _totalPages) {
-                _pdfController?.animateToPage(target, duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+                _pdfController?.animateToPage(
+                  target,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeIn,
+                );
                 Navigator.pop(context);
               }
             },
@@ -150,11 +163,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         preferredSize: const Size.fromHeight(60),
         child: Stack(
           children: [
-            CustomAppBar(
-              height: 40,
-              title: widget.title,
-              isDashboard: false,
-            ),
+            CustomAppBar(height: 40, title: widget.title, isDashboard: false),
             if (!_isLoading && !_hasError)
               Positioned(
                 right: 20,
@@ -172,7 +181,11 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                         _currentPage = page;
                         return Text(
                           "$page / ${pagesCount ?? 0}",
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         );
                       },
                     ),
@@ -184,27 +197,27 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       ),
       body: _isLoading
           ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(color: Color(0xFF0A6ED1)),
-            const SizedBox(height: 20),
-            Text(_status),
-          ],
-        ),
-      )
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(color: Color(0xFF0A6ED1)),
+                  const SizedBox(height: 20),
+                  Text(_status),
+                ],
+              ),
+            )
           : _hasError
           ? Center(
-        child: ElevatedButton(
-          onPressed: _initializePdf, // 🔹 Retries based on type
-          child: const Text("Retry"),
-        ),
-      )
+              child: ElevatedButton(
+                onPressed: _initializePdf, // 🔹 Retries based on type
+                child: const Text("Retry"),
+              ),
+            )
           : PdfView(
-        controller: _pdfController!,
-        scrollDirection: Axis.horizontal,
-        pageSnapping: true,
-      ),
+              controller: _pdfController!,
+              scrollDirection: Axis.horizontal,
+              pageSnapping: true,
+            ),
     );
   }
 }

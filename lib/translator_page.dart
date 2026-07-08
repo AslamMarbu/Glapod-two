@@ -36,6 +36,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
   final Color translatorOrange = const Color(
     0xFFED7E22,
   ); // From your Dashboard tile!
+  final Color speakButtonColor = const Color(0xFF6200EE);
   final Color textDark = const Color(0xFF1E293B);
   final Color surfaceWhite = Colors.white;
 
@@ -172,7 +173,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
       backgroundColor: backgroundColor,
       // CustomAppBar with matching clean text title style
       appBar: const CustomAppBar(
-        height: 50,
+        height: 70,
         title: "Translator",
         isDashboard: false,
       ),
@@ -213,7 +214,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
                           onPressed: _swapLanguages,
                           icon: Icon(
                             Icons.swap_horiz_rounded,
-                            color: translatorOrange,
+                            color: speakButtonColor,
                             size: 24,
                           ),
                         ),
@@ -259,7 +260,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
                     fontWeight: FontWeight.w600,
                     color: translatedText.isEmpty
                         ? Colors.black26
-                        : translatorOrange,
+                        : speakButtonColor,
                   ),
                 ),
               ),
@@ -294,7 +295,6 @@ class _TranslatorPageState extends State<TranslatorPage> {
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    flex: 2,
                     child: InkWell(
                       onTap: _listen,
                       borderRadius: BorderRadius.circular(20),
@@ -303,14 +303,14 @@ class _TranslatorPageState extends State<TranslatorPage> {
                         decoration: BoxDecoration(
                           color: _isListening
                               ? Colors.redAccent
-                              : translatorOrange,
+                              : speakButtonColor,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
                               color:
                                   (_isListening
                                           ? Colors.redAccent
-                                          : translatorOrange)
+                                          : speakButtonColor)
                                       .withOpacity(0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
@@ -477,7 +477,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: isSource ? textDark.withOpacity(.5) : translatorOrange,
+                  color: isSource ? textDark.withOpacity(.5) : speakButtonColor,
                 ),
               ),
 
@@ -489,7 +489,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
                         : Icons.g_translate_rounded,
                     color: isSource
                         ? Colors.black26
-                        : translatorOrange.withOpacity(.4),
+                        : speakButtonColor.withOpacity(.4),
                     size: 20,
                   ),
 
@@ -506,12 +506,12 @@ class _TranslatorPageState extends State<TranslatorPage> {
                     child: Container(
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: translatorOrange.withOpacity(.12),
+                        color: speakButtonColor.withOpacity(.12),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.volume_up_rounded,
-                        color: translatorOrange,
+                        color: speakButtonColor,
                         size: 18,
                       ),
                     ),

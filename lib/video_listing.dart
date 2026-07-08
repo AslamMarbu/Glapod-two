@@ -57,11 +57,20 @@ class _VideoListingPageState extends State<VideoListingPage> {
   bool _isVideoSelected = false;
   String? _activeVideoTitle;
 
+  final List<Color> _subjectPalette = [
+    const Color.fromARGB(255, 92, 95, 239),
+    const Color(0xFF10B981),
+    const Color(0xFFEC4899),
+    const Color(0xFFF59E0B),
+    const Color.fromARGB(255, 111, 14, 255),
+    const Color.fromARGB(255, 17, 248, 252),
+  ];
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        context.read<VideoProvider>().initialFetch(widget.chapterId)
+    Future.microtask(
+      () => context.read<VideoProvider>().initialFetch(widget.chapterId),
     );
   }
 
@@ -73,10 +82,13 @@ class _VideoListingPageState extends State<VideoListingPage> {
         _isVideoSelected = true;
 
         if (_controller == null) {
-          _controller = YoutubePlayerController(
-            initialVideoId: id,
-            flags: const YoutubePlayerFlags(autoPlay: true),
-          )..addListener(() { if (mounted) setState(() {}); });
+          _controller =
+              YoutubePlayerController(
+                initialVideoId: id,
+                flags: const YoutubePlayerFlags(autoPlay: true),
+              )..addListener(() {
+                if (mounted) setState(() {});
+              });
         } else {
           _controller!.load(id);
         }
@@ -96,8 +108,12 @@ class _VideoListingPageState extends State<VideoListingPage> {
     final vp = context.watch<VideoProvider>();
 
     return YoutubePlayerBuilder(
-      onEnterFullScreen: () => SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]),
-      onExitFullScreen: () => SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+      onEnterFullScreen: () => SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]),
+      onExitFullScreen: () =>
+          SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
       player: YoutubePlayer(
         controller: _controller ?? YoutubePlayerController(initialVideoId: ""),
         showVideoProgressIndicator: true,
@@ -107,44 +123,51 @@ class _VideoListingPageState extends State<VideoListingPage> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF1FAF2),
-          appBar: isFull ? null : CustomAppBar(
-            height: 60,
-            title: widget.chapterTitle,
-            isSubtitle: true,
-            subtitleText: widget.subjectName,
-            isDashboard: false,
-          ),
+          appBar: isFull
+              ? null
+              : CustomAppBar(
+                  height: 60,
+                  title: widget.chapterTitle,
+                  isSubtitle: true,
+                  subtitleText: widget.subjectName,
+                  isDashboard: false,
+                ),
           body: vp.isPageLoading
               ? _buildFullPageShimmer() // 🔹 Full page shimmer
               : Column(
-            children: [
-              if (_isVideoSelected && _controller != null)
-                Column(
                   children: [
-                    player,
+                    if (_isVideoSelected && _controller != null)
+                      Column(
+                        children: [
+                          player,
+                          if (!isFull)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              width: double.infinity,
+                              color: Colors.white,
+                              child: Text(
+                                _activeVideoTitle!,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     if (!isFull)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        width: double.infinity,
-                        color: Colors.white,
-                        child: Text(_activeVideoTitle!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildLanguageHeader(vp),
+                              _buildVideoListBody(vp),
+                            ],
+                          ),
+                        ),
                       ),
                   ],
                 ),
-              if (!isFull)
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLanguageHeader(vp),
-                        _buildVideoListBody(vp),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
         );
       },
     );
@@ -164,10 +187,17 @@ class _VideoListingPageState extends State<VideoListingPage> {
                 const ShimmerPlaceholder(width: 150, height: 20),
                 const SizedBox(height: 12),
                 Row(
-                  children: List.generate(3, (index) => const Padding(
-                    padding: EdgeInsets.only(right: 10),
-                    child: ShimmerPlaceholder(width: 80, height: 35, borderRadius: 20),
-                  )),
+                  children: List.generate(
+                    3,
+                    (index) => const Padding(
+                      padding: EdgeInsets.only(right: 10),
+                      child: ShimmerPlaceholder(
+                        width: 80,
+                        height: 35,
+                        borderRadius: 20,
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 25),
                 const ShimmerPlaceholder(width: 120, height: 20),
@@ -189,28 +219,18 @@ class _VideoListingPageState extends State<VideoListingPage> {
       itemCount: 5,
       itemBuilder: (context, index) {
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(12),
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: [
-              const ShimmerPlaceholder(width: 65, height: 65, borderRadius: 15),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    ShimmerPlaceholder(width: 60, height: 12),
-                    SizedBox(height: 8),
-                    ShimmerPlaceholder(width: double.infinity, height: 16),
-                  ],
-                ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Colors.grey.shade300, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              const SizedBox(width: 10),
-              const ShimmerPlaceholder(width: 30, height: 30, borderRadius: 15),
             ],
           ),
         );
@@ -224,33 +244,64 @@ class _VideoListingPageState extends State<VideoListingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Video Language", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            "Video Language",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: vp.languages.map((lang) {
-                bool isSelected = vp.selectedLanguageId == vp.toSafeInt(lang['id']);
+              children: vp.languages.asMap().entries.map((entry) {
+                final index = entry.key;
+                final lang = entry.value;
+
+                final Color accentColor =
+                    _subjectPalette[index % _subjectPalette.length];
+
+                bool isSelected =
+                    vp.selectedLanguageId == vp.toSafeInt(lang['id']);
+
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
-                  child: ChoiceChip(
-                    label: Text(lang['language'] ?? ""),
-                    selected: isSelected,
-                    selectedColor: const Color(0xFF1B75BB),
-                    labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
-                    onSelected: (val) {
-                      if (val) {
-                        vp.selectLanguage(lang, widget.chapterId);
-                        setState(() => _isVideoSelected = false);
-                      }
+                  child: GestureDetector(
+                    onTap: () {
+                      vp.selectLanguage(
+                        vp.toSafeInt(lang['id']),
+                        widget.chapterId,
+                      );
                     },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? accentColor
+                            : accentColor.withOpacity(.10),
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(color: accentColor, width: 2),
+                      ),
+                      child: Text(
+                        lang['language'],
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : accentColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 );
               }).toList(),
             ),
           ),
           const SizedBox(height: 20),
-          Text("Videos (${vp.selectedLanguageName})", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            "Videos (${vp.selectedLanguageName})",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -260,7 +311,11 @@ class _VideoListingPageState extends State<VideoListingPage> {
     // 🔹 Shimmer specifically for when switching languages
     if (vp.isVideosLoading) return _buildVideoListShimmer();
 
-    if (vp.videos.isEmpty) return const Padding(padding: EdgeInsets.all(20.0), child: Center(child: Text("No videos found.")));
+    if (vp.videos.isEmpty)
+      return const Padding(
+        padding: EdgeInsets.all(20.0),
+        child: Center(child: Text("No videos found.")),
+      );
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -269,30 +324,84 @@ class _VideoListingPageState extends State<VideoListingPage> {
       itemCount: vp.videos.length,
       itemBuilder: (context, index) {
         final video = vp.videos[index];
+
+        final Color accentColor =
+            _subjectPalette[index % _subjectPalette.length];
+
         return GestureDetector(
-          onTap: () => _onVideoSelected(video['video_url'], video['title'], index),
+          onTap: () =>
+              _onVideoSelected(video['video_url'], video['title'], index),
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: accentColor.withOpacity(.30), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                _buildPlayThumbnail(),
+                Container(
+                  width: 62,
+                  height: 62,
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(.10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: accentColor,
+                    size: 34,
+                  ),
+                ),
                 const SizedBox(width: 15),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Part ${index + 1}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      Text(video['title'] ?? "Video Title", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        video["title"] ?? "",
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      Text(
+                        "Part ${index + 1}",
+                        style: TextStyle(
+                          color: accentColor.withOpacity(.80),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const Icon(Icons.play_circle_fill, color: Color(0xFF1B75BB), size: 30),
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
               ],
             ),
           ),
@@ -306,10 +415,13 @@ class _VideoListingPageState extends State<VideoListingPage> {
       alignment: Alignment.center,
       children: [
         Container(
-          height: 65, width: 65,
+          height: 65,
+          width: 65,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(15),
-            gradient: const LinearGradient(colors: [Color(0xFF53D4FF), Color(0xFF2478FF)]),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF53D4FF), Color(0xFF2478FF)],
+            ),
           ),
         ),
         const Icon(Icons.play_arrow, color: Colors.white, size: 35),

@@ -16,10 +16,12 @@ class ChapterSolutionDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<ChapterSolutionDetailsPage> createState() => _ChapterSolutionDetailsPageState();
+  State<ChapterSolutionDetailsPage> createState() =>
+      _ChapterSolutionDetailsPageState();
 }
 
-class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage> {
+class _ChapterSolutionDetailsPageState
+    extends State<ChapterSolutionDetailsPage> {
   late int _currentIndex;
   bool _showAnswer = false;
 
@@ -39,15 +41,25 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
   Widget build(BuildContext context) {
     if (widget.qaList.isEmpty) {
       return Scaffold(
-        appBar: CustomAppBar(title: widget.exerciseTitle, height: 60, isDashboard: false),
+        appBar: CustomAppBar(
+          title: widget.exerciseTitle,
+          height: 60,
+          isDashboard: false,
+        ),
         body: const Center(child: Text("No questions found")),
       );
     }
 
     final currentQA = widget.qaList[_currentIndex];
 
-    String cleanQuestion = (currentQA['question'] ?? "").replaceAll(RegExp(r'<[^>]*>'), '');
-    String cleanAnswer = (currentQA['answer'] ?? "").replaceAll(RegExp(r'<[^>]*>'), '');
+    String cleanQuestion = (currentQA['question'] ?? "").replaceAll(
+      RegExp(r'<[^>]*>'),
+      '',
+    );
+    String cleanAnswer = (currentQA['answer'] ?? "").replaceAll(
+      RegExp(r'<[^>]*>'),
+      '',
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1FAF2),
@@ -63,7 +75,7 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
         onBookmarkChanged: (bool newValue) {
           _handleBookmarkUpdate(newValue);
         },
-        shareText:ShareHelper.getQuestionShareText(
+        shareText: ShareHelper.getQuestionShareText(
           question: currentQA['question'] ?? "",
           answer: currentQA['answer'] ?? "",
         ),
@@ -76,11 +88,17 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-
-                _toggleButton("Hide Ans", !_showAnswer, () => setState(() => _showAnswer = false)),
-                 const SizedBox(width: 15),
-                _toggleButton("Show Ans", _showAnswer, () => setState(() => _showAnswer = true)),
-
+                _toggleButton(
+                  "Hide Ans",
+                  !_showAnswer,
+                  () => setState(() => _showAnswer = false),
+                ),
+                const SizedBox(width: 15),
+                _toggleButton(
+                  "Show Ans",
+                  _showAnswer,
+                  () => setState(() => _showAnswer = true),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -106,7 +124,7 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
                       color: Colors.black.withOpacity(0.06),
                       blurRadius: 15,
                       offset: const Offset(0, 8),
-                    )
+                    ),
                   ],
                   border: Border.all(color: Colors.white, width: 2),
                 ),
@@ -115,7 +133,10 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(10),
@@ -131,7 +152,10 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        currentQA['question'].replaceAll(RegExp(r'<[^>]*>'), ''),
+                        currentQA['question'].replaceAll(
+                          RegExp(r'<[^>]*>'),
+                          '',
+                        ),
                         style: const TextStyle(
                           fontSize: 17,
                           height: 1.5,
@@ -147,7 +171,11 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
                         ),
                         const Row(
                           children: [
-                            Icon(Icons.check_circle, color: Color(0xFF1B75BB), size: 20),
+                            Icon(
+                              Icons.check_circle,
+                              color: Color(0xFF1B75BB),
+                              size: 20,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               "Answer",
@@ -161,7 +189,10 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          currentQA['answer'].replaceAll(RegExp(r'<[^>]*>'), ''),
+                          currentQA['answer'].replaceAll(
+                            RegExp(r'<[^>]*>'),
+                            '',
+                          ),
                           style: const TextStyle(
                             fontSize: 16,
                             height: 1.6,
@@ -217,11 +248,19 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
         decoration: BoxDecoration(
-          gradient: isActive ? const LinearGradient(colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)]) : null,
+          gradient: isActive
+              ? const LinearGradient(
+                  colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)],
+                )
+              : null,
           color: isActive ? null : Colors.white,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 3))
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 3),
+            ),
           ],
         ),
         child: Text(
@@ -235,7 +274,12 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
     );
   }
 
-  Widget _navButton({required String label, required IconData icon, required bool enabled, required VoidCallback onTap}) {
+  Widget _navButton({
+    required String label,
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
     return ElevatedButton(
       onPressed: enabled ? onTap : null,
       style: ElevatedButton.styleFrom(
@@ -252,7 +296,10 @@ class _ChapterSolutionDetailsPageState extends State<ChapterSolutionDetailsPage>
           if (label == "Prev") Icon(icon, size: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ),
           if (label == "Next") Icon(icon, size: 16),
         ],

@@ -15,7 +15,9 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final bool isDashboard;
   final bool isSubtitle;
   final bool actionRequired;
+  final Widget? trailingWidget;
   final PreferredSizeWidget? bottom;
+  final List<Widget>? customActions;
 
   final int? postId;
   final String? bookmarkType;
@@ -37,6 +39,8 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
     this.initialBookmarked = false,
     this.onBookmarkChanged,
     this.shareText,
+    this.trailingWidget,
+    this.customActions,
   });
 
   @override
@@ -85,63 +89,87 @@ class _CustomAppBarState extends State<CustomAppBar> {
   Widget build(BuildContext context) {
     return AppBar(
       toolbarHeight: widget.height,
-      elevation: 0,
-      backgroundColor: Colors.transparent,
       automaticallyImplyLeading: false,
+      elevation: 4,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       bottom: widget.bottom,
+
+      title: null,
+      leading: null,
+      actions: null,
+
       flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xffFF9F1C), Color(0xffFF6B35)],
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xff6200EE), Color(0xff7B1FFF)],
           ),
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(28),
-            bottomRight: Radius.circular(28),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.orange.withOpacity(.25),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
-      ),
-      leading: widget.isDashboard
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: _circleButton(
-                icon: Icons.arrow_back_ios_new,
-                onTap: () => Navigator.pop(context),
+        child: SafeArea(
+          child: Center(
+            child: SizedBox(
+              height: kToolbarHeight,
+              child: Row(
+                children: [
+                  if (!widget.isDashboard)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+
+                  Expanded(
+                    child: widget.isDashboard
+                        ? _buildDashboardTitle()
+                        : _buildStandardTitle(),
+                  ),
+
+                  if (_buildActions(context) != null)
+                    ..._buildActions(context)!,
+                ],
               ),
             ),
-      title: widget.isDashboard
-          ? _buildDashboardTitle()
-          : _buildStandardTitle(),
-      actions: _buildActions(context),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _circleButton({
+  Widget actionButton({
     required IconData icon,
     required VoidCallback onTap,
     Color iconColor = Colors.white,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(50),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: onTap,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.15),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.white.withOpacity(.25)),
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.18),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white24),
+          color: Colors.white.withOpacity(.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(.25)),
         ),
-        child: Icon(icon, color: iconColor, size: 20),
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }
@@ -149,30 +177,36 @@ class _CustomAppBarState extends State<CustomAppBar> {
   Widget _buildDashboardTitle() {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+        Hero(
+          tag: "logo",
+          child: Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Image.asset("assets/images/logoo.png", height: 36),
           ),
-          child: Image.asset("assets/images/logoo.png", height: 34),
         ),
-        const SizedBox(width: 12),
+
+        const SizedBox(width: 14),
+
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               "EdMaster",
-              style: GoogleFonts.comfortaa(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+              style: GoogleFonts.poppins(
+                fontSize: 21,
                 color: Colors.white,
+                fontWeight: FontWeight.w700,
+                letterSpacing: .3,
               ),
             ),
-            const Text(
-              "Learn Smart",
-              style: TextStyle(color: Colors.white70, fontSize: 11),
+
+            Text(
+              "Learn Smarter Everyday",
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
             ),
           ],
         ),
@@ -186,31 +220,40 @@ class _CustomAppBarState extends State<CustomAppBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          StringUtils.toSentenceCase(widget.title.toString()) ?? "",
-          style: const TextStyle(
-            color: Colors.white,
+          StringUtils.toSentenceCase(widget.title ?? ""),
+          style: GoogleFonts.nunito(
             fontWeight: FontWeight.w700,
-            fontSize: 22,
+            fontSize: 23,
+            color: Colors.white,
           ),
         ),
-        if (widget.isSubtitle && widget.subtitleText != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              widget.subtitleText!,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
-            ),
+
+        if (widget.isSubtitle)
+          Text(
+            widget.subtitleText ?? "",
+            style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
           ),
       ],
     );
   }
 
   List<Widget>? _buildActions(BuildContext context) {
+    if (widget.customActions != null) {
+      return widget.customActions;
+    }
+    if (widget.trailingWidget != null) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: widget.trailingWidget!,
+        ),
+      ];
+    }
     if (widget.isDashboard) {
       return [
-        IconButton(
-          icon: const Icon(Icons.person, color: Colors.white),
-          onPressed: () =>
+        actionButton(
+          icon: Icons.person_outline_rounded,
+          onTap: () =>
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ProfilePage()),
@@ -218,9 +261,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
                 if (widget.isDashboard) setState(() {});
               }),
         ),
-        IconButton(
-          icon: const Icon(Icons.notifications, color: Colors.white),
-          onPressed: () => Navigator.push(
+
+        actionButton(
+          icon: Icons.notifications_none_rounded,
+          onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const NotificationPage()),
           ),
@@ -239,26 +283,15 @@ class _CustomAppBarState extends State<CustomAppBar> {
                 : Colors.transparent,
             shape: BoxShape.circle,
           ),
-          child: IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Icon(
-                    isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: isFavorite ? Colors.redAccent : Colors.white,
-                  ),
-            onPressed: _isLoading ? null : _handleBookmarkToggle,
+          child: actionButton(
+            icon: isFavorite ? Icons.favorite : Icons.favorite_border_rounded,
+            iconColor: isFavorite ? Colors.redAccent : Colors.white,
+            onTap: _isLoading ? () {} : _handleBookmarkToggle,
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.share, color: Colors.white),
-          onPressed: () {
+        actionButton(
+          icon: Icons.ios_share_rounded,
+          onTap: () {
             String finalMessage =
                 widget.shareText ??
                 "Check out this ${widget.title ?? 'content'} on Glapod!";

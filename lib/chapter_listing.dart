@@ -32,7 +32,7 @@ class SubjectDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6), // Smooth off-white surface
-      appBar: CustomAppBar(height: 50, title: subjectName),
+      appBar: CustomAppBar(height: 70, title: subjectName),
       body: chapters.isEmpty
           ? const EmptyStateWidget(msg: "No chapters available!")
           : ListView.builder(

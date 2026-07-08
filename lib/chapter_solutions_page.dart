@@ -46,7 +46,7 @@ class ChapterSolutionsPage extends StatefulWidget {
     super.key,
     required this.subjectId,
     required this.chapterId,
-    required this.chapterTitle
+    required this.chapterTitle,
   });
 
   @override
@@ -65,7 +65,11 @@ class _ChapterSolutionsPageState extends State<ChapterSolutionsPage> {
   Future<Map<String, dynamic>> _loadData() async {
     final studentData = await LocalStorageService.getStudent();
     final String classId = studentData?['class_id']?.toString() ?? "3";
-    return StudentService.getChapterSolutions(classId, widget.subjectId, widget.chapterId);
+    return StudentService.getChapterSolutions(
+      classId,
+      widget.subjectId,
+      widget.chapterId,
+    );
   }
 
   @override
@@ -84,20 +88,25 @@ class _ChapterSolutionsPageState extends State<ChapterSolutionsPage> {
             return _buildShimmerList(); // 🔹 Replaced Spinner with Shimmer
           }
 
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data!['status'] != true) {
+          if (snapshot.hasError ||
+              !snapshot.hasData ||
+              snapshot.data!['status'] != true) {
             return const EmptyStateWidget(msg: "No solutions found!");
           }
 
           final solutions = snapshot.data!['data'] as List? ?? [];
 
           if (solutions.isEmpty) {
-            return const EmptyStateWidget(msg: "No solutions available for this chapter.");
+            return const EmptyStateWidget(
+              msg: "No solutions available for this chapter.",
+            );
           }
 
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             itemCount: solutions.length,
-            itemBuilder: (context, index) => _buildSolutionCard(context, solutions[index]),
+            itemBuilder: (context, index) =>
+                _buildSolutionCard(context, solutions[index]),
           );
         },
       ),
@@ -141,7 +150,9 @@ class _ChapterSolutionsPageState extends State<ChapterSolutionsPage> {
   }
 
   Widget _buildSolutionCard(BuildContext context, dynamic item) {
-    final String title = item['activity'] != null ? "Activity ${item['activity']}" : "Solution";
+    final String title = item['activity'] != null
+        ? "Activity ${item['activity']}"
+        : "Solution";
     final String pageNum = item['page_number']?.toString() ?? "N/A";
 
     return GestureDetector(
@@ -155,7 +166,7 @@ class _ChapterSolutionsPageState extends State<ChapterSolutionsPage> {
                 {
                   "question": item['question'] ?? "",
                   "answer": item['answer'] ?? "",
-                }
+                },
               ],
             ),
           ),
@@ -172,7 +183,7 @@ class _ChapterSolutionsPageState extends State<ChapterSolutionsPage> {
               color: Colors.black.withOpacity(0.03),
               blurRadius: 15,
               offset: const Offset(0, 4),
-            )
+            ),
           ],
         ),
         child: Row(
@@ -192,7 +203,10 @@ class _ChapterSolutionsPageState extends State<ChapterSolutionsPage> {
                   const SizedBox(height: 5),
                   Text(
                     "Page No. $pageNum",
-                    style: const TextStyle(color: AppColors.textSubtitle, fontSize: 14),
+                    style: const TextStyle(
+                      color: AppColors.textSubtitle,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),

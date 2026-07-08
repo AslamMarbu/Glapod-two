@@ -111,6 +111,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
     if (enteredWord != _targetWord.replaceAll(" ", "")) {
       _triggerShake();
+      _clearInputs(); // <-- Automatically clears fields and hides the keyboard on error
       return;
     }
     _fetchNewQuestion();
@@ -124,9 +125,19 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   }
 
   void _clearInputs() {
-    for (var controller in _controllers) controller.clear();
+    // 1. Dismiss the keyboard
+    FocusScope.of(context).unfocus();
+
+    // 2. Clear all text controllers
+    for (var controller in _controllers) {
+      controller.clear();
+    }
+
     setState(() {});
-    _focusFirstEmpty();
+
+    // Note: If you want the keyboard to STAY down, do NOT call _focusFirstEmpty() here,
+    // because requesting focus on a text field will bring the keyboard right back up.
+    // _focusFirstEmpty();
   }
 
   @override
@@ -142,6 +153,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     final tense = context.watch<PredictionTenseProvider>();
 
     return Scaffold(
+      resizeToAvoidBottomInset: true, // Ensures layout adjusts for keyboard
       backgroundColor: const Color(0xFFF6F8FE),
       body: tense.isLoading ? _buildShimmerLoading() : _buildBody(tense),
     );
@@ -201,6 +213,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
 
     return Column(
       children: [
+        // Top Header
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
@@ -251,19 +264,22 @@ class _PredictionTensePageState extends State<PredictionTensePage>
           ),
         ),
 
+        // Main Content Area
         Expanded(
           child: Transform.translate(
             offset: const Offset(0, -20),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              // Extra bottom padding ensures scrolling space above the keyboard
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 30 : 10,
+              ),
               child: Column(
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 32,
-                      horizontal: 20,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(32),
@@ -275,14 +291,12 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                         ),
                       ],
                     ),
-                    // ... inside _buildBody -> SingleChildScrollView -> Column ...
                     child: Column(
                       children: [
                         _buildSectionHeader("Base Form [V1]"),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 14),
                         _buildV1Card(),
 
-                        // --- INSERT BEGINNER ANSWER KEY HERE ---
                         if (widget.level.trim().toLowerCase() ==
                             "beginner") ...[
                           const SizedBox(height: 20),
@@ -293,18 +307,15 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 8,
-                              color:
-                                  deepIndigoText, // Using your existing deepIndigoText color
+                              color: deepIndigoText,
                             ),
                           ),
                         ],
 
-                        // ----------------------------------------
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 18),
                         _buildSectionHeader("Simple Past [V2]"),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 14),
 
-                        // Wrapped grid to dynamically scale down boxes
                         SizedBox(
                           width: double.infinity,
                           child: FittedBox(
@@ -319,12 +330,16 @@ class _PredictionTensePageState extends State<PredictionTensePage>
 
                   const SizedBox(height: 20),
                   _buildV3RowCard(),
+
+                  // By inserting the button into the scroll view, it flows naturally
+                  // and stops overlapping your V2 boxes.
+                  const SizedBox(height: 30),
+                  _buildBottomGradientAction(),
                 ],
               ),
             ),
           ),
         ),
-        _buildBottomGradientAction(),
       ],
     );
   }
@@ -524,75 +539,92 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     bool isCorrect = enteredWord == correctWord;
 
     Color borderColor;
-
     if (isCompleted) {
       borderColor = isCorrect ? Colors.green : Colors.red;
     } else {
       borderColor = hasFocus ? brandPurple : const Color(0xFFD6DCED);
     }
 
-    return Container(
-      width: 32,
-      height: 44,
-      decoration: BoxDecoration(
-        color: lightCardPurple,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: borderColor,
-          width: isCompleted ? 2.2 : (hasFocus ? 1.8 : 1.2),
-        ),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            _controllers[index].text.toUpperCase(),
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: deepIndigoText,
-            ),
-          ),
-          TextField(
-            controller: _controllers[index],
-            focusNode: _focusNodes[index],
-            textAlign: TextAlign.center,
-            maxLength: 1,
-            showCursor: false,
-            enableSuggestions: false,
-            autocorrect: false,
-            style: const TextStyle(color: Colors.transparent),
-            decoration: const InputDecoration(
-              counterText: "",
-              border: InputBorder.none,
-              isCollapsed: true,
-            ),
-            onChanged: (value) {
+    // Wrap with KeyboardListener to detect Backspace on empty boxes
+    return KeyboardListener(
+      focusNode: FocusNode(
+        skipTraversal: true,
+      ), // Internal node just for listening
+      onKeyEvent: (KeyEvent event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.backspace) {
+            // If current box is empty and backspace is pressed, go to previous box
+            if (_controllers[index].text.isEmpty && index > 0) {
+              _focusNodes[index - 1].requestFocus();
+              _controllers[index - 1]
+                  .clear(); // Optional: clears previous box too
               setState(() {});
-              if (value.isNotEmpty) {
-                int nextIndex = index + 1;
-                if (nextIndex < _controllers.length) {
-                  _focusNodes[nextIndex].requestFocus();
-                } else {
-                  _focusNodes[index].unfocus();
-                }
-              }
-            },
+            }
+          }
+        }
+      },
+      child: Container(
+        width: 32,
+        height: 44,
+        decoration: BoxDecoration(
+          color: lightCardPurple,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: borderColor,
+            width: isCompleted ? 2.2 : (hasFocus ? 1.8 : 1.2),
           ),
-        ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              _controllers[index].text.toUpperCase(),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: deepIndigoText,
+              ),
+            ),
+            TextField(
+              controller: _controllers[index],
+              focusNode: _focusNodes[index],
+              textAlign: TextAlign.center,
+              maxLength: 1,
+              showCursor: false,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.transparent),
+              decoration: const InputDecoration(
+                counterText: "",
+                border: InputBorder.none,
+                isCollapsed: true,
+              ),
+              onChanged: (value) {
+                setState(() {});
+                if (value.isNotEmpty) {
+                  int nextIndex = index + 1;
+                  if (nextIndex < _controllers.length) {
+                    _focusNodes[nextIndex].requestFocus();
+                  } else {
+                    _focusNodes[index].unfocus();
+                  }
+                } else {
+                  // Regular backspace when box HAS text handles moving back here
+                  if (index > 0) {
+                    _focusNodes[index - 1].requestFocus();
+                  }
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildBottomGradientAction() {
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom > 0
-            ? MediaQuery.of(context).padding.bottom + 12
-            : 30,
-        left: 24,
-        right: 24,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: SizedBox(
         width: double.infinity,
         height: 60,

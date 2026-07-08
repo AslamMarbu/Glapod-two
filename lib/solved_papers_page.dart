@@ -18,8 +18,8 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        context.read<SolvedPapersProvider>().fetchSolvedPapers()
+    Future.microtask(
+      () => context.read<SolvedPapersProvider>().fetchSolvedPapers(),
     );
   }
 
@@ -29,23 +29,25 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1FAF2),
-      appBar: const CustomAppBar(height: 40, title: "Solved Papers"),
+      appBar: const CustomAppBar(height: 70, title: "Solved Papers"),
       body: spProvider.isLoading
           ? _buildShimmerLoading() // 🔹 Replaced CircularProgressIndicator
           : !spProvider.hasDataToShow
-          ? const EmptyStateWidget(msg: "No solved papers are available at this time.")
+          ? const EmptyStateWidget(
+              msg: "No solved papers are available at this time.",
+            )
           : ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-        itemCount: spProvider.papers.length,
-        itemBuilder: (context, index) {
-          final subjectData = spProvider.papers[index];
-          final List years = subjectData['years'] ?? [];
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+              itemCount: spProvider.papers.length,
+              itemBuilder: (context, index) {
+                final subjectData = spProvider.papers[index];
+                final List years = subjectData['years'] ?? [];
 
-          if (years.isEmpty) return const SizedBox.shrink();
+                if (years.isEmpty) return const SizedBox.shrink();
 
-          return _buildDynamicSubjectCard(subjectData);
-        },
-      ),
+                return _buildDynamicSubjectCard(subjectData);
+              },
+            ),
     );
   }
 
@@ -60,7 +62,8 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
           highlightColor: Colors.grey[100]!,
           child: Container(
             margin: const EdgeInsets.only(bottom: 15),
-            height: 70, // Matches the approximate height of a collapsed ExpansionTile
+            height:
+                70, // Matches the approximate height of a collapsed ExpansionTile
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -76,31 +79,62 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
     final List<dynamic> years = subjectData['years'] ?? [];
     final String subjectId = subjectData['id'].toString();
 
-    final formattedName = subjectName.split(' ').map((str) => str.isNotEmpty
-        ? '${str[0].toUpperCase()}${str.substring(1).toLowerCase()}'
-        : '').join(' ');
+    final formattedName = subjectName
+        .split(' ')
+        .map(
+          (str) => str.isNotEmpty
+              ? '${str[0].toUpperCase()}${str.substring(1).toLowerCase()}'
+              : '',
+        )
+        .join(' ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          title: Text(formattedName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textHeadingBlack)),
+          title: Text(
+            formattedName,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textHeadingBlack,
+            ),
+          ),
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20, top: 10),
+              padding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                top: 10,
+              ),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Wrap(
                   spacing: 12,
                   runSpacing: 12,
-                  children: years.map((year) => _buildYearButton(year.toString(), formattedName, subjectId)).toList(),
+                  children: years
+                      .map(
+                        (year) => _buildYearButton(
+                          year.toString(),
+                          formattedName,
+                          subjectId,
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ),
@@ -127,11 +161,26 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
+          ),
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: const Color(0xFF4FACFE).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4FACFE).withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Text(year, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        child: Text(
+          year,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
       ),
     );
   }

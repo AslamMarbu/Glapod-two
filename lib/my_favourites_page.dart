@@ -56,7 +56,10 @@ class _MyFavouritesPageState extends State<MyFavouritesPage> {
                 dividerColor: Colors.white,
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.white70,
-                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
                 tabs: [
                   Tab(text: "Questions"),
                   Tab(text: "Solutions"),
@@ -68,18 +71,20 @@ class _MyFavouritesPageState extends State<MyFavouritesPage> {
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : TabBarView(
-          children: [
-            _buildListSection(_questions, "Question"),
-            _buildListSection(_solutions, "Solution"),
-          ],
-        ),
+                children: [
+                  _buildListSection(_questions, "Question"),
+                  _buildListSection(_solutions, "Solution"),
+                ],
+              ),
       ),
     );
   }
 
   Widget _buildListSection(List<dynamic> list, String type) {
     if (list.isEmpty) {
-      return EmptyStateWidget(msg: "No favourite ${type.toLowerCase()}s saved yet.");
+      return EmptyStateWidget(
+        msg: "No favourite ${type.toLowerCase()}s saved yet.",
+      );
     }
 
     return ListView.builder(
@@ -94,12 +99,14 @@ class _MyFavouritesPageState extends State<MyFavouritesPage> {
             List<dynamic> mappedList = list.map((item) {
               return {
                 'id': item['question_id'], // Map question_id to 'id'
-                'title': item['question'] != null && item['question'].length > 20
+                'title':
+                    item['question'] != null && item['question'].length > 20
                     ? "${item['question'].substring(0, 20)}..."
                     : (item['question'] ?? "Detail"),
                 'question': item['question'] ?? "",
                 'answer': item['answer'] ?? "",
-                'bookmark': true, // Since it's from the bookmark list, it's true
+                'bookmark':
+                    true, // Since it's from the bookmark list, it's true
               };
             }).toList();
 
@@ -146,7 +153,9 @@ class _MyFavouritesPageState extends State<MyFavouritesPage> {
             child: Row(
               children: [
                 Icon(
-                  type == "Question" ? Icons.help_outline : Icons.check_circle_outline,
+                  type == "Question"
+                      ? Icons.help_outline
+                      : Icons.check_circle_outline,
                   color: const Color(0xFF1B75BB),
                   size: 28,
                 ),
@@ -172,7 +181,11 @@ class _MyFavouritesPageState extends State<MyFavouritesPage> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: Colors.grey,
+                ),
               ],
             ),
           ),

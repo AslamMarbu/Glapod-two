@@ -102,6 +102,7 @@ class _PredictionPageState extends State<PredictionPage> {
     final pp = context.watch<PredictionProvider>();
 
     return Scaffold(
+      appBar: const CustomAppBar(height: 70, title: "Word Master"),
       body: Stack(
         children: [
           Positioned.fill(
@@ -118,113 +119,84 @@ class _PredictionPageState extends State<PredictionPage> {
               ),
             ),
           ),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCustomHeader(context),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
-                          ),
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 480),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  const SizedBox(height: 20),
-                                  pp.isLoading
-                                      ? const ShimmerPlaceholder(
-                                          width: double.infinity,
-                                          height: 96,
-                                          borderRadius: 28,
-                                        )
-                                      : _buildGuessNameExpandableCard(pp),
-                                  const SizedBox(height: 16),
-                                  _buildFeatureRowCard(
-                                    title: "Verb Forms",
-                                    description:
-                                        "Select a level to start learning!",
-                                    backgroundColor: const Color(0xFFFFFDF0),
-                                    arrowColor: const Color(0xFFFFC107),
-                                    avatarWidget: const Icon(
-                                      Icons.edit_road_rounded,
-                                      size: 40,
-                                      color: Color(0xFFFFB300),
-                                    ),
-                                    isLoading: pp.isLoading,
-                                    onTap: () => _showLevelBottomSheet(
-                                      "Verb Forms",
-                                      pp,
-                                      (lvl) => _navToTense(lvl),
-                                    ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 480),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                const SizedBox(height: 20),
+                                pp.isLoading
+                                    ? const ShimmerPlaceholder(
+                                        width: double.infinity,
+                                        height: 96,
+                                        borderRadius: 28,
+                                      )
+                                    : _buildGuessNameExpandableCard(pp),
+                                const SizedBox(height: 16),
+                                _buildFeatureRowCard(
+                                  title: "Verb Forms",
+                                  description:
+                                      "Select a level to start learning!",
+                                  backgroundColor: const Color(0xFFFFFDF0),
+                                  arrowColor: const Color(0xFFFFC107),
+                                  avatarWidget: const Icon(
+                                    Icons.edit_road_rounded,
+                                    size: 40,
+                                    color: Color(0xFFFFB300),
                                   ),
-                                  const SizedBox(height: 16),
-                                  _buildFeatureRowCard(
-                                    title: "Antonyms",
-                                    description:
-                                        "Select a level to start learning!",
-                                    backgroundColor: const Color(0xFFE8F8F5),
-                                    arrowColor: const Color(0xFF2ECC71),
-                                    avatarWidget: const Icon(
-                                      Icons.saved_search_rounded,
-                                      size: 40,
-                                      color: Color(0xFF27AE60),
-                                    ),
-                                    isLoading: pp.isLoading,
-                                    onTap: () => _showLevelBottomSheet(
-                                      "Antonyms",
-                                      pp,
-                                      (lvl) => _navToOpposite(lvl),
-                                    ),
+                                  isLoading: pp.isLoading,
+                                  onTap: () => _showLevelBottomSheet(
+                                    "Verb Forms",
+                                    pp,
+                                    (lvl) => _navToTense(lvl),
                                   ),
-                                  const SizedBox(height: 40),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildFeatureRowCard(
+                                  title: "Antonyms",
+                                  description:
+                                      "Select a level to start learning!",
+                                  backgroundColor: const Color(0xFFE8F8F5),
+                                  arrowColor: const Color(0xFF2ECC71),
+                                  avatarWidget: const Icon(
+                                    Icons.saved_search_rounded,
+                                    size: 40,
+                                    color: Color(0xFF27AE60),
+                                  ),
+                                  isLoading: pp.isLoading,
+                                  onTap: () => _showLevelBottomSheet(
+                                    "Antonyms",
+                                    pp,
+                                    (lvl) => _navToOpposite(lvl),
+                                  ),
+                                ),
+                                const SizedBox(height: 40),
+                              ],
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCustomHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Color(0xFF1E293B),
-              size: 22,
-            ),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: const EdgeInsets.all(12),
-              elevation: 2,
-              shadowColor: Colors.black12,
-            ),
-          ),
-          const SizedBox(width: 48),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:glapod/quiz_game.dart';
 import 'package:glapod/word_space_game.dart';
+import 'widgets.dart/appbar_page.dart';
 
 class GamesZonePage extends StatefulWidget {
   const GamesZonePage({super.key});
@@ -86,190 +87,143 @@ class _GamesZonePageState extends State<GamesZonePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        // Mimicking the playful outdoor background sky and path scenery
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(
-              "assets/images/games_zone_bg.png",
-            ), // Add your background scenery asset here
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              _buildHeader(context),
-              // We use an Expanded + Center combo to keep the content mathematically in the middle of the remaining space
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: games.map((game) {
-                                return _buildGameCard(context, game);
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+      extendBodyBehindAppBar: true,
+      appBar: CustomAppBar(
+        height: 70,
+        title: "Games Zone",
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Circular Soft-Yellow Back Button
-          InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(50),
-            child: Container(
-              padding: const EdgeInsets.all(12),
+        trailingWidget: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _toggleMute,
+              child: Icon(
+                _isMuted ? Icons.volume_off : Icons.volume_up,
+                color: Colors.white,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBE6),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                color: Colors.amber,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.stars, color: Colors.white, size: 18),
+
+                  SizedBox(width: 5),
+
+                  Text(
+                    "120",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 18,
-                color: Color(0xFFE88905),
+            ),
+          ],
+        ),
+      ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF63AAED), // Sky Blue
+                  Color.fromARGB(255, 240, 255, 101), // Light Blue
+                  Color.fromARGB(255, 255, 184, 90), // White
+                ],
+                stops: [0.0, 0.55, 1.0],
               ),
             ),
           ),
 
-          // Center Controller Icon & App Title
-          Column(
-            children: [
-              const Image(
-                image: AssetImage(
-                  "assets/images/gamepad_icon.png",
-                ), // Use a cute game controller image asset if available
-                height: 44,
-                width: 44,
-                errorBuilder: _fallbackControllerIcon,
+          Positioned(
+            top: -120,
+            right: -80,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.25),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                "Games Zone",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A2B6D),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                "Play, Learn & Have Fun!",
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A2B6D).withOpacity(0.6),
-                ),
-              ),
-            ],
+            ),
           ),
 
-          // 3. Updated Action Section: Wrapped Mute Button and Points badge together
-          Row(
-            children: [
-              // Mute/Unmute Audio Button
-              InkWell(
-                onTap: _toggleMute,
-                borderRadius: BorderRadius.circular(50),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: _isMuted
-                        ? const Color(0xFFFFEAEA)
-                        : const Color(0xFFE6F7FF),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    _isMuted
-                        ? Icons.volume_off_rounded
-                        : Icons.volume_up_rounded,
-                    size: 20,
-                    color: _isMuted
-                        ? Colors.redAccent
-                        : const Color(0xFF1F9E68),
-                  ),
-                ),
+          Positioned(
+            top: 120,
+            left: 80,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color.fromARGB(
+                  255,
+                  255,
+                  255,
+                  255,
+                ).withOpacity(0.25),
               ),
-              const SizedBox(width: 8),
+            ),
+          ),
 
-              // Dashboard Points Badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7E6),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.star_rounded,
-                      color: Colors.orangeAccent,
-                      size: 22,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      "1250",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: Color(0xFF4A4A4A),
-                      ),
-                    ),
-                  ],
-                ),
+          Positioned(
+            bottom: -100,
+            left: -60,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.25),
               ),
-            ],
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                // We use an Expanded + Center combo to keep the content mathematically in the middle of the remaining space
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: games.map((game) {
+                                  return _buildGameCard(context, game);
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -286,7 +240,7 @@ class _GamesZonePageState extends State<GamesZonePage> {
 
   Widget _buildGameCard(BuildContext context, Map<String, dynamic> game) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
         gradient: game['gradient'],
         borderRadius: BorderRadius.circular(28),
