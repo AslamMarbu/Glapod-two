@@ -6,11 +6,7 @@ import 'package:glapod/utils/app_colors.dart';
 class PdfViewerPage extends StatefulWidget {
   final String path, title;
 
-  const PdfViewerPage({
-    super.key,
-    required this.path,
-    required this.title,
-  });
+  const PdfViewerPage({super.key, required this.path, required this.title});
 
   @override
   State<PdfViewerPage> createState() => _PdfViewerPageState();
@@ -28,9 +24,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: const Text("Jump to Page"),
         content: TextField(
           controller: tempController,
@@ -55,8 +49,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              final targetPage =
-              int.tryParse(tempController.text);
+              final targetPage = int.tryParse(tempController.text);
 
               if (targetPage != null &&
                   targetPage > 0 &&
@@ -67,8 +60,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text(
-                        "Please enter a valid page range"),
+                    content: Text("Please enter a valid page range"),
                   ),
                 );
               }
@@ -90,11 +82,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         preferredSize: const Size.fromHeight(90),
         child: Stack(
           children: [
-            CustomAppBar(
-              height: 60,
-              title: widget.title,
-              isDashboard: false,
-            ),
+            CustomAppBar(height: 60, title: widget.title, isDashboard: false),
 
             // 🔹 Overlay Controls
             Positioned(
@@ -104,12 +92,8 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(
-                      Icons.find_in_page,
-                      color: Colors.white,
-                    ),
-                    onPressed:
-                    isReady ? _showGoToPageDialog : null,
+                    icon: const Icon(Icons.find_in_page, color: Colors.white),
+                    onPressed: isReady ? _showGoToPageDialog : null,
                   ),
                   if (isReady)
                     Text(
@@ -158,9 +142,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
           // 🔹 Loader
           if (!isReady)
             const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF0A6ED1),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFF0A6ED1)),
             ),
 
           // 🔹 Bottom Page Indicator
@@ -177,8 +159,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.4),
-                    borderRadius:
-                    BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                   child: Text(
                     "Page ${currentPage + 1}",

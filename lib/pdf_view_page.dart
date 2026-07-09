@@ -159,41 +159,36 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: Stack(
-          children: [
-            CustomAppBar(height: 40, title: widget.title, isDashboard: false),
-            if (!_isLoading && !_hasError)
-              Positioned(
-                right: 20,
-                bottom: 15,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.find_in_page, color: Colors.white),
-                      onPressed: _showGoToPageDialog,
+      appBar: CustomAppBar(
+        height: 60,
+        title: widget.title,
+        isDashboard: false,
+        customActions: [
+          IconButton(
+            icon: const Icon(Icons.find_in_page, color: Colors.white),
+            onPressed: _showGoToPageDialog,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Center(
+              child: PdfPageNumber(
+                controller: _pdfController!,
+                builder: (context, state, page, pagesCount) {
+                  _totalPages = pagesCount ?? 0;
+                  _currentPage = page;
+
+                  return Text(
+                    "$page/${pagesCount ?? 0}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     ),
-                    PdfPageNumber(
-                      controller: _pdfController!,
-                      builder: (context, state, page, pagesCount) {
-                        _totalPages = pagesCount ?? 0;
-                        _currentPage = page;
-                        return Text(
-                          "$page / ${pagesCount ?? 0}",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
       body: _isLoading
           ? Center(
@@ -217,6 +212,12 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
               controller: _pdfController!,
               scrollDirection: Axis.horizontal,
               pageSnapping: true,
+              renderer: (PdfPage page) => page.render(
+                width: page.width,
+                height: page.height,
+                format: PdfPageImageFormat.png,
+                backgroundColor: '#FFFFFF',
+              ),
             ),
     );
   }

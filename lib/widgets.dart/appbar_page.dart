@@ -221,9 +221,12 @@ class _CustomAppBarState extends State<CustomAppBar> {
       children: [
         Text(
           StringUtils.toSentenceCase(widget.title ?? ""),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
           style: GoogleFonts.nunito(
             fontWeight: FontWeight.w700,
-            fontSize: 23,
+            fontSize: 20,
             color: Colors.white,
           ),
         ),
