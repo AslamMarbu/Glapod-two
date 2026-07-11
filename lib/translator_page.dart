@@ -36,7 +36,7 @@ class _TranslatorPageState extends State<TranslatorPage> {
   final Color translatorOrange = const Color(
     0xFFED7E22,
   ); // From your Dashboard tile!
-  final Color speakButtonColor = const Color(0xFF6200EE);
+  final Color speakButtonColor = const Color.fromARGB(255, 255, 131, 42);
   final Color textDark = const Color(0xFF1E293B);
   final Color surfaceWhite = Colors.white;
 

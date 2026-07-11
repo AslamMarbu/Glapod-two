@@ -722,4 +722,24 @@ class StudentService {
       return [];
     }
   }
+
+  static Future<List<dynamic>> fetchEnglishGrammar() async {
+    final token = await LocalStorageService.getToken();
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/api/english-master/grammar/list"),
+      headers: {"Accept": "application/json", "Authorization": "Bearer $token"},
+    );
+
+    print("Status Code: ${response.statusCode}");
+    print("Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      return data["data"] ?? [];
+    } else {
+      throw Exception("Failed to load grammar");
+    }
+  }
 }

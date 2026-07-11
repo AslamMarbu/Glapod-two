@@ -24,8 +24,8 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   String _v3Hint = "";
   bool _isInitialized = false;
 
-  final Color brandPurple = const Color(0xFF4A10B7);
-  final Color deepIndigoText = const Color(0xFF1E1066);
+  final Color brandorange = const Color.fromARGB(255, 249, 116, 22);
+  final Color deepOrangeText = const Color(0xfff16704);
   final Color lightCardPurple = const Color(0xFFF3F5FC);
   final Color dividerLineColor = const Color(0xFFD6C8F4);
 
@@ -218,7 +218,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [brandPurple, brandPurple.withOpacity(0.85)],
+              colors: [brandorange, brandorange.withOpacity(0.85)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -307,7 +307,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 8,
-                              color: deepIndigoText,
+                              color: deepOrangeText,
                             ),
                           ),
                         ],
@@ -353,7 +353,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
         Icon(
           Icons.diamond_outlined,
           size: 10,
-          color: brandPurple.withOpacity(0.5),
+          color: brandorange.withOpacity(0.5),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -369,7 +369,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
         Icon(
           Icons.diamond_outlined,
           size: 10,
-          color: brandPurple.withOpacity(0.5),
+          color: brandorange.withOpacity(0.5),
         ),
         const SizedBox(width: 6),
         Container(width: 20, height: 1.5, color: dividerLineColor),
@@ -392,7 +392,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
         style: TextStyle(
           fontSize: 26,
           fontWeight: FontWeight.w900,
-          color: deepIndigoText,
+          color: deepOrangeText,
           letterSpacing: 10, // Natural internal system letterspacing
         ),
       ),
@@ -445,7 +445,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: deepIndigoText,
+                    color: deepOrangeText,
                   ),
                 ),
               ],
@@ -470,7 +470,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
           CircleAvatar(
             radius: 25,
             backgroundColor: const Color(0xFFDCE4FF),
-            child: Icon(Icons.chat_bubble, color: brandPurple, size: 22),
+            child: Icon(Icons.chat_bubble, color: brandorange, size: 22),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -482,7 +482,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: brandPurple,
+                    color: brandorange,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -542,7 +542,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     if (isCompleted) {
       borderColor = isCorrect ? Colors.green : Colors.red;
     } else {
-      borderColor = hasFocus ? brandPurple : const Color(0xFFD6DCED);
+      borderColor = hasFocus ? brandorange : const Color(0xFFD6DCED);
     }
 
     // Wrap with KeyboardListener to detect Backspace on empty boxes
@@ -582,7 +582,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: deepIndigoText,
+                color: deepOrangeText,
               ),
             ),
             TextField(
@@ -631,14 +631,14 @@ class _PredictionTensePageState extends State<PredictionTensePage>
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [brandPurple, const Color(0xFF6A26DA)],
+              colors: [brandorange, const Color.fromARGB(255, 239, 125, 45)],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: brandPurple.withOpacity(0.25),
+                color: brandorange.withOpacity(0.25),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -699,7 +699,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: onBtnPressed,
-              style: ElevatedButton.styleFrom(backgroundColor: brandPurple),
+              style: ElevatedButton.styleFrom(backgroundColor: brandorange),
               child: Text(
                 buttonText,
                 style: const TextStyle(color: Colors.white),

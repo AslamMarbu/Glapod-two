@@ -546,7 +546,7 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF311B92), Color(0xFF512DA8)],
+              colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
             ),
             borderRadius: BorderRadius.circular(32),
           ),
@@ -639,7 +639,7 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
                 const SizedBox(height: 24),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4A148C),
+                    backgroundColor: const Color(0xfff16704),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

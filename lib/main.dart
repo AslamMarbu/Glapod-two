@@ -25,6 +25,7 @@ import 'providers/sample_paper_provider.dart';
 import 'providers/textbook_provider.dart';
 import 'providers/questions_year_wise_lprovider.dart';
 import 'providers/solved_papers_yearwise_provider.dart';
+import 'providers/english_master_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,15 +68,15 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PaperSetProvider()),
         ChangeNotifierProvider(create: (_) => QuestionBankProvider()),
         ChangeNotifierProvider(create: (_) => QuestionViewProvider()),
-        ChangeNotifierProvider(create: (_) => SolvedPapersProvider()),
         ChangeNotifierProvider(create: (_) => PredictionProvider()),
         ChangeNotifierProvider(create: (_) => PredictionGameProvider()),
         ChangeNotifierProvider(create: (_) => PredictionTenseProvider()),
+        ChangeNotifierProvider(create: (_) => SolvedPaperSetProvider()),
         ChangeNotifierProvider(create: (_) => PredictionOppositeProvider()),
         ChangeNotifierProvider(create: (_) => SamplePaperProvider()),
         ChangeNotifierProvider(create: (_) => TextbookProvider()),
         ChangeNotifierProvider(create: (_) => YearwiseQPaperProvider()),
-        ChangeNotifierProvider(create: (_) => SolvedPaperSetProvider()),
+        ChangeNotifierProvider(create: (_) => EnglishMasterProvider()),
       ],
       child: MyApp(initialPage: startPage, isLoggedIn: isLoggedIn),
     ),

@@ -4,6 +4,7 @@ import 'package:glapod/study_subject_listing.dart';
 import 'package:glapod/solved_papers_page.dart';
 import 'package:glapod/prediction_page.dart';
 import 'package:glapod/translator_page.dart';
+import 'package:glapod/english_master.dart';
 import 'package:glapod/profile.dart';
 import 'package:glapod/storage/local_storage_service.dart';
 import 'package:glapod/utils/app_colors.dart';
@@ -403,7 +404,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const TranslatorPage(),
+                                  builder: (_) => const EnglishMasterPage(),
                                 ),
                               );
                             },
@@ -473,7 +474,14 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                   "assets/images/dashboard/translator.png",
                               color: const Color.fromARGB(255, 255, 3, 121),
                               cardWidth: quickAccessCardWidth,
-                              onTap: () {},
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const TranslatorPage(),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(width: 10),
                             _miniCard(
