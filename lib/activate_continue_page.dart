@@ -120,7 +120,7 @@ debugPrint("LOGOUT RESPONSE => $result");
               color: Colors.white,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: const Color(0xFF6BCF2E),
+                color: const Color.fromARGB(255, 249, 116, 22),
                 width: 2,
               ), // Green Border
               boxShadow: [
@@ -136,10 +136,7 @@ debugPrint("LOGOUT RESPONSE => $result");
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF1B75BB).withOpacity(0.1),
-                      const Color(0xFF6BCF2E).withOpacity(0.1),
-                    ],
+                     colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -154,7 +151,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
-                        color: Color(0xFF1B75BB),
+                        color: Color(0xfff16704),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -174,7 +171,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                       child: GradientButton(
                         text: 'Yes, Continue',
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
+                           colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
                         ),
                         onPressed: () {
                           Navigator.pop(context); // Close Popup
@@ -188,7 +185,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                       child: const Text(
                         "Cancel",
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: Color.fromARGB(255, 14, 14, 14),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -282,7 +279,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                         vertical: 28,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 94, 157, 209),
+                        color: Color.fromARGB(255, 232, 140, 75),
                         borderRadius: BorderRadius.circular(22),
                         boxShadow: [
                           BoxShadow(
@@ -325,7 +322,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                           : GradientButton(
                               text: 'Activate & Continue',
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
+                                 colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
                               ),
                               onPressed: _handleInitialCheck, // STARTS FLOW
                             ),
@@ -337,7 +334,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                         child: const Text(
                           'Logout',
                           style: TextStyle(
-                            color: Color(0xFF1B75BB),
+                            color: Color(0xfff16704),
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -349,7 +346,7 @@ debugPrint("LOGOUT RESPONSE => $result");
                         child: const Text(
                           'Click here to go back',
                           style: TextStyle(
-                            color: Color.fromARGB(255, 66, 180, 70),
+                            color: Color.fromARGB(255, 249, 116, 22),
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),

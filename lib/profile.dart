@@ -317,7 +317,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         text: _isLoading ? 'Saving...' : 'Save & Continue',
                         onPressed: _isLoading ? () {} : _handleSaveProfile,
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF40C4FF), Color(0xFF00B0FF)],
+                           colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
                         ),
                       ),
                     ),

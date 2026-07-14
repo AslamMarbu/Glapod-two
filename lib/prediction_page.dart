@@ -750,17 +750,17 @@ class _PredictionPageState extends State<PredictionPage> {
     switch (level.toLowerCase()) {
       case "beginner":
         icon = Icons.eco_rounded;
-        iconBg = const Color(0xFFFFF7D6);
+        iconBg = const Color.fromARGB(255, 220, 255, 239); 
         borderColor = const Color(0xFF22C55E); // Green
-        arrowBg = const Color(0xFFFFF7D6);
+        arrowBg = const Color.fromARGB(255, 220, 255, 239);
         subtitle = "Perfect for getting started";
         break;
 
       case "intermediate":
         icon = Icons.flash_on_rounded;
-        iconBg = const Color.fromARGB(255, 220, 255, 239);
+        iconBg = const Color(0xFFFFF7D6);
         borderColor = const Color(0xFFFACC15); // Yellow
-        arrowBg = const Color.fromARGB(255, 220, 255, 239);
+        arrowBg = const Color(0xFFFFF7D6);
         subtitle = "Improve your skills";
         break;
 

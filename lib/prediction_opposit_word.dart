@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/prediction_opposite_provider.dart';
-import '../utils/app_colors.dart';
+import 'widgets.dart/appbar_page.dart';
 
 class PredictionOppositePage extends StatefulWidget {
   final String level;
@@ -148,46 +148,14 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     final opp = context.watch<PredictionOppositeProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5FA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            Expanded(
-              child: opp.isLoading ? _buildShimmerLoading() : _buildBody(opp),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar() {
-    return Container(
-      color: const Color(0xfff16704),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Text(
-            "Antonyms",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.apps, color: Colors.white, size: 28),
-            onPressed: () {},
-          ),
-        ],
-      ),
-    );
+  backgroundColor: const Color(0xFFF5F5FA),
+  appBar: const CustomAppBar(
+    height: 70,
+    title: "Antonyms",
+    isDashboard: false,
+  ),
+  body: opp.isLoading ? _buildShimmerLoading() : _buildBody(opp),
+);
   }
 
   Widget _buildBody(PredictionOppositeProvider opp) {

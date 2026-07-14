@@ -21,8 +21,8 @@ class TermsConditionsPage extends StatelessWidget {
             // UPDATED: Darker gradient to match AppBar (Opacity increased to 0.22)
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF1B75BB).withOpacity(0.22),
-                const Color(0xFF6BCF2E).withOpacity(0.22),
+                const Color(0xfff16704).withOpacity(0.22),
+                const Color.fromARGB(255, 249, 116, 22).withOpacity(0.22),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -96,7 +96,7 @@ class TermsConditionsPage extends StatelessWidget {
                   child: const Text(
                     "Thank you for learning with us!",
                     style: TextStyle(
-                      color: Color(0xFF1B75BB),
+                      color: Color.fromARGB(255, 0, 0, 0),
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),

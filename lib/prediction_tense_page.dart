@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/prediction_tense_provider.dart';
-import '../utils/app_colors.dart';
+import 'widgets.dart/appbar_page.dart';
 
 class PredictionTensePage extends StatefulWidget {
   final String level;
@@ -152,11 +152,18 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   Widget build(BuildContext context) {
     final tense = context.watch<PredictionTenseProvider>();
 
-    return Scaffold(
-      resizeToAvoidBottomInset: true, // Ensures layout adjusts for keyboard
-      backgroundColor: const Color(0xFFF6F8FE),
-      body: tense.isLoading ? _buildShimmerLoading() : _buildBody(tense),
-    );
+   return Scaffold(
+  resizeToAvoidBottomInset: true,
+  backgroundColor: const Color(0xFFF6F8FE),
+
+  appBar: const CustomAppBar(
+    height: 50,
+    title: "Past Tense",
+    isDashboard: false,
+  ),
+
+  body: tense.isLoading ? _buildShimmerLoading() : _buildBody(tense),
+);
   }
 
   Widget _buildShimmerLoading() {
@@ -212,62 +219,9 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     }
 
     return Column(
-      children: [
-        // Top Header
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [brandorange, brandorange.withOpacity(0.85)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 12,
-            bottom: 35,
-            left: 20,
-            right: 20,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const Text(
-                "Past tense",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.grid_view_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Main Content Area
+      children: [      // Main Content Area
         Expanded(
-          child: Transform.translate(
-            offset: const Offset(0, -20),
+          child: SingleChildScrollView(
             child: SingleChildScrollView(
               // Extra bottom padding ensures scrolling space above the keyboard
               padding: EdgeInsets.only(
@@ -304,10 +258,10 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                             _targetWord.toUpperCase(),
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 8,
-                              color: deepOrangeText,
+                              color: Color(0xFF43A047),
                             ),
                           ),
                         ],

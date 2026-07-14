@@ -102,7 +102,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
+colors: [
+  Color(0xFFFF9800), // #ff9800
+  Color(0xFFFFC107), // #ffc107
+],
           ),
         ),
         child: SafeArea(
