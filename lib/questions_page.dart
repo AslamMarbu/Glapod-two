@@ -44,19 +44,15 @@ class _QuestionsPageState extends State<QuestionsPage> {
           ? _buildShimmerLoading(width) // Replaced CircularProgressIndicator
           : qProvider.years.isEmpty
           ? const EmptyStateWidget(
-        msg: "No years available for this subject yet.",
-      )
+              msg: "No years available for this subject yet.",
+            )
           : ListView.builder(
-        padding: EdgeInsets.all(width * 0.05),
-        itemCount: qProvider.years.length,
-        itemBuilder: (context, index) {
-          return _buildYearCard(
-            context,
-            qProvider.years[index],
-            width,
-          );
-        },
-      ),
+              padding: EdgeInsets.all(width * 0.05),
+              itemCount: qProvider.years.length,
+              itemBuilder: (context, index) {
+                return _buildYearCard(context, qProvider.years[index], width);
+              },
+            ),
     );
   }
 
@@ -82,11 +78,7 @@ class _QuestionsPageState extends State<QuestionsPage> {
     );
   }
 
-  Widget _buildYearCard(
-      BuildContext context,
-      YearSetData data,
-      double width,
-      ) {
+  Widget _buildYearCard(BuildContext context, YearSetData data, double width) {
     return Container(
       margin: EdgeInsets.symmetric(vertical: width * 0.02),
       decoration: BoxDecoration(

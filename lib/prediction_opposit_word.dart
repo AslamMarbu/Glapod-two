@@ -120,7 +120,7 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
 
     if (enteredWord != cleanTarget) {
       _triggerShake();
-      _clearInputsOnError(); // 👈 Hides keyboard and resets grid input fields
+      _clearInputsOnError(); //  Hides keyboard and resets grid input fields
       return;
     }
 
@@ -164,7 +164,7 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
 
   Widget _buildAppBar() {
     return Container(
-      color: const Color(0xFF4A148C),
+      color: const Color(0xfff16704),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -258,7 +258,7 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF4A148C),
+                            color: Color(0xfff16704),
                             letterSpacing: 3,
                           ),
                         ),
@@ -375,7 +375,7 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
         borderRadius = BorderRadius.circular(8);
       }
     } else if (_focusNodes[index].hasFocus) {
-      borderColor = const Color(0xFF4A148C);
+      borderColor = const Color(0xfff16704);
       borderWidth = 1.5;
     }
 
