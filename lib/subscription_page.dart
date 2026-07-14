@@ -77,7 +77,7 @@ class SubscriptionPage extends StatelessWidget {
                   padding: const EdgeInsets.all(25),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)],
+                      colors: [Color(0xfff16704),Color.fromARGB(255, 249, 116, 22)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -111,8 +111,8 @@ class SubscriptionPage extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF1B75BB).withOpacity(0.15),
-                        const Color(0xFF6BCF2E).withOpacity(0.15),
+                        const Color(0xfff16704).withOpacity(0.15),
+                        const Color.fromARGB(255, 249, 116, 22).withOpacity(0.15),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -162,7 +162,7 @@ class SubscriptionPage extends StatelessWidget {
                       width: 240,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)]),
+                        gradient: const LinearGradient(colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)]),
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(

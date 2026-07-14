@@ -16,14 +16,37 @@ class _StudyState extends State<Study> {
   // Keeps track of which subject card is currently expanded (-1 means none)
   int _expandedIndex = -1;
 
-  final List<Color> _subjectPalette = [
-    const Color.fromARGB(255, 92, 95, 239), // Indigo
-    const Color(0xFF10B981), // Emerald Green
-    const Color(0xFFEC4899), // Pink
-    const Color(0xFFF59E0B), // Amber Yellow
-    const Color.fromARGB(255, 111, 14, 255), // Deep Orange
-    const Color.fromARGB(255, 17, 248, 252), // Cyan
-  ];
+  final Map<String, Color> _subjectColors = {
+  "Physics": const Color(0xFF2962FF), // Royal Blue
+  "Chemistry": const Color(0xFFE91E63), // Emerald Green 
+  "Biology": const Color(0xFF43A047), // Leaf Green
+  "Mathematics": const Color(0xFF00BCD4), // Cyan
+  "History": const Color(0xFF7B1FA2), // Deep Purple
+  "Geography": const Color(0xFFF06801), // Brand Orange
+  "Economics": const Color(0xFF00C853), // Pink
+  "Political Science": const Color(0xFF3F51B5), // Indigo
+  "Political Science/Civics": const Color(0xFF3F51B5),
+  "Civics": const Color(0xFF3F51B5),
+  "English": const Color(0xFFD32F2F), // Crimson Red
+  "Hindi": const Color(0xFFFFB300), // Amber
+  "Sanskrit": const Color(0xFF8E244D), // Maroon
+};
+
+  final Map<String, int> _subjectOrder = {
+  "Physics": 1,
+  "Chemistry": 2,
+  "Biology": 3,
+  "Mathematics": 4,
+  "History": 5,
+  "Geography": 6,
+  "Economics": 7,
+  "Political Science": 8,
+  "Civics": 8,
+  "Political Science/Civics": 8,
+  "English": 9,
+  "Hindi": 10,
+  "Sanskrit": 11,
+};
 
   @override
   void initState() {
@@ -36,6 +59,21 @@ class _StudyState extends State<Study> {
   @override
   Widget build(BuildContext context) {
     final studyProvider = context.watch<StudyProvider>();
+    final subjects = List<Map<String, dynamic>>.from(studyProvider.subjects);
+
+subjects.sort((a, b) {
+  final nameA = (a["subject"] ?? "").toString().trim();
+  final nameB = (b["subject"] ?? "").toString().trim();
+
+  final orderA = _subjectOrder[nameA] ?? 999;
+  final orderB = _subjectOrder[nameB] ?? 999;
+
+  if (orderA != orderB) {
+    return orderA.compareTo(orderB);
+  }
+
+  return nameA.compareTo(nameB);
+});
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
@@ -50,13 +88,13 @@ class _StudyState extends State<Study> {
           : studyProvider.subjects.isEmpty
           ? const Center(child: Text("No subjects available"))
           : ListView.builder(
-              itemCount: studyProvider.subjects.length,
+              itemCount: subjects.length,
               padding: const EdgeInsets.symmetric(vertical: 20),
               itemBuilder: (context, index) {
-                final item = studyProvider.subjects[index];
+                final item = subjects[index];
                 final String subjectName = item["subject"] ?? "";
                 final Color assignedColor =
-                    _subjectPalette[index % _subjectPalette.length];
+    _subjectColors[subjectName] ?? const Color(0xFF2962FF);
 
                 return SubjectCard(
                   subjectId: item['id'].toString(),

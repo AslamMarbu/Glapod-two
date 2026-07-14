@@ -8,26 +8,18 @@ class FreeTrialPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/image.png'),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+  backgroundColor: Colors.white,
+  body: Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
               Container(
                 width: 250,
                 height: 100,
                 padding: EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 94, 157, 209),
+                  color: const Color.fromARGB(255, 253, 166, 104),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -55,7 +47,7 @@ class FreeTrialPage extends StatelessWidget {
                 child: GradientButton(
                   text: 'Continue to App',
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
+                    colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
                   ),
                   onPressed: () {
                     Navigator.push(
@@ -74,7 +66,7 @@ class FreeTrialPage extends StatelessWidget {
                 child: GradientButton(
                   text: 'Purchase Key',
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
+                   colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
                   ),
                   onPressed: () {
                     Navigator.push(
@@ -90,7 +82,7 @@ class FreeTrialPage extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
+    
   }
 }
