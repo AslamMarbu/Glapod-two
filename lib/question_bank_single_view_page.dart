@@ -25,6 +25,7 @@ class QuestionViewPage extends StatefulWidget {
 }
 
 class _QuestionViewPageState extends State<QuestionViewPage> {
+  bool _showAnswer = false;
   @override
   void initState() {
     super.initState();
@@ -50,10 +51,12 @@ class _QuestionViewPageState extends State<QuestionViewPage> {
     bool isLoading = currentQA == null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1FAF2),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: CustomAppBar(
         height: 40,
-        title: isLoading ? widget.title : "${widget.title} - Q${qv.currentIndex + 1}",
+        title: isLoading
+            ? widget.title
+            : "${widget.title} - Q${qv.currentIndex + 1}",
         actionRequired: !isLoading,
         postId: isLoading ? null : currentQA['id'],
         bookmarkType: "question_bank",
@@ -62,70 +65,277 @@ class _QuestionViewPageState extends State<QuestionViewPage> {
         shareText: isLoading
             ? ""
             : ShareHelper.getQuestionShareText(
-          question: qv.cleanHtml(currentQA['question'] ?? ""),
-          answer: qv.cleanHtml(currentQA['answer'] ?? ""),
-        ),
+                question: qv.cleanHtml(currentQA['question'] ?? ""),
+                answer: qv.cleanHtml(currentQA['answer'] ?? ""),
+              ),
       ),
       body: isLoading ? _buildShimmerBody() : _buildContent(qv, currentQA),
     );
   }
 
   Widget _buildContent(QuestionViewProvider qv, dynamic currentQA) {
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _toggleButton("Hide Ans", !qv.showAnswer, () => qv.toggleAnswer(false)),
-            const SizedBox(width: 20),
-            _toggleButton("Show Ans", qv.showAnswer, () => qv.toggleAnswer(true)),
-          ],
-        ),
-        const SizedBox(height: 25),
-        Expanded(
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF1B75BB).withOpacity(0.18),
-                  const Color(0xFF6BCF2E).withOpacity(0.18)
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.white, width: 2.5),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(30),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader("Question"),
-                    const SizedBox(height: 15),
-                    _renderHtmlWithMath(currentQA['question'] ?? "", 18),
-                    if (qv.showAnswer) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Container(height: 2, color: Colors.white),
-                      ),
-                      _buildSectionHeader("Answer"),
-                      const SizedBox(height: 10),
-                      _renderHtmlWithMath(currentQA['answer'] ?? "", 17),
-                    ],
-                  ],
+    return SafeArea(
+      child: Column(
+        children: [
+          const SizedBox(height: 18),
+
+          _buildProgress(qv),
+
+          const SizedBox(height: 20),
+
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+
+              children: [
+                _buildQuestionCard(currentQA),
+
+                const SizedBox(height: 18),
+
+                _buildAnswerToggle(),
+
+                const SizedBox(height: 18),
+
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 300),
+
+                  crossFadeState: _showAnswer
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+
+                  firstChild: const SizedBox(),
+
+                  secondChild: _buildAnswerCard(currentQA),
                 ),
+
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+
+          _buildNavigation(qv),
+
+          const SizedBox(height: 15),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgress(QuestionViewProvider qv) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+
+            decoration: BoxDecoration(
+              color: Colors.white,
+
+              borderRadius: BorderRadius.circular(30),
+
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 15),
+              ],
+            ),
+
+            child: Text(
+              "Question ${qv.currentIndex + 1} of ${qv.qaList.length}",
+
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+
+                fontSize: 18,
+
+                color: Color(0xff4F46E5),
               ),
             ),
           ),
+
+          const SizedBox(height: 15),
+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+
+            child: LinearProgressIndicator(
+              minHeight: 8,
+
+              value: (qv.currentIndex + 1) / qv.qaList.length,
+
+              backgroundColor: Colors.grey.shade300,
+
+              valueColor: const AlwaysStoppedAnimation(Color(0xff4F46E5)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard(dynamic currentQA) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /// Header
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F46E5).withOpacity(.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.quiz_rounded,
+                  color: Color(0xFF4F46E5),
+                  size: 28,
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              const Expanded(
+                child: Text(
+                  "Question",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 22),
+
+          _renderHtmlWithMath(currentQA['question'] ?? "", 18),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnswerToggle() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(30),
+      onTap: () {
+        setState(() {
+          _showAnswer = !_showAnswer;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: _showAnswer ? const Color(0xFF10B981) : Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: const Color(0xFF10B981), width: 2),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 12),
+          ],
         ),
-        _buildNavRow(qv),
-      ],
+        child: Row(
+          children: [
+            Icon(
+              _showAnswer
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              color: _showAnswer ? Colors.white : const Color(0xFF10B981),
+            ),
+
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: Text(
+                _showAnswer ? "Hide Answer" : "Show Answer",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: _showAnswer ? Colors.white : const Color(0xFF10B981),
+                ),
+              ),
+            ),
+
+            AnimatedRotation(
+              turns: _showAnswer ? .5 : 0,
+              duration: const Duration(milliseconds: 250),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: _showAnswer ? Colors.white : const Color(0xFF10B981),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnswerCard(dynamic currentQA) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Color(0xFF10B981),
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              const Text(
+                "Answer",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          _renderHtmlWithMath(currentQA['answer'] ?? "", 18),
+        ],
+      ),
     );
   }
 
@@ -133,9 +343,10 @@ class _QuestionViewPageState extends State<QuestionViewPage> {
     return HtmlWidget(
       htmlData,
       textStyle: TextStyle(
-          fontSize: baseFontSize,
-          color: const Color(0xFF263238),
-          height: 1.5),
+        fontSize: baseFontSize + 1,
+        color: const Color(0xFF263238),
+        height: 1.8,
+      ),
       customWidgetBuilder: (element) {
         final text = element.text;
         if (text.contains(r'\(') || text.contains(r'\[')) {
@@ -148,10 +359,10 @@ class _QuestionViewPageState extends State<QuestionViewPage> {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Math.tex(
               cleanMath,
-              textStyle: TextStyle(fontSize: baseFontSize + 1),
-              onErrorFallback: (err) => Text(text),
+              textStyle: TextStyle(fontSize: baseFontSize + 2),
             ),
           );
         }
@@ -160,85 +371,75 @@ class _QuestionViewPageState extends State<QuestionViewPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Color(0xFF1B75BB),
-        fontWeight: FontWeight.bold,
-        fontSize: 16,
+  Widget _buildNavigation(QuestionViewProvider qv) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-    );
-  }
-
-  Widget _buildNavRow(QuestionViewProvider qv) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 30),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _navButton("Prev", Icons.arrow_back_ios_new, qv.currentIndex > 0,
-                  () => qv.previousQuestion()),
-          const SizedBox(width: 20),
-          _navButton("Next", Icons.arrow_forward_ios,
-              qv.currentIndex < qv.qaList.length - 1, () => qv.nextQuestion()),
-        ],
-      ),
-    );
-  }
-
-  Widget _toggleButton(String text, bool isActive, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 130,
-        height: 50,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isActive ? null : Colors.white,
-          gradient: isActive
-              ? const LinearGradient(colors: [Color(0xFF1B75BB), Color(0xFF6BCF2E)])
-              : null,
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isActive ? Colors.white : const Color(0xFF1B75BB),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _navButton(String label, IconData icon, bool enabled, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-        decoration: BoxDecoration(
-          color: enabled ? Colors.white : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          children: [
-            if (label == "Prev")
-              Icon(icon, size: 14, color: enabled ? const Color(0xFF1B75BB) : Colors.grey),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: enabled ? const Color(0xFF1B75BB) : Colors.grey,
+          /// Previous
+          Expanded(
+            child: SizedBox(
+              height: 55,
+              child: OutlinedButton.icon(
+                onPressed: qv.currentIndex > 0
+                    ? () {
+                        setState(() {
+                          _showAnswer = false;
+                        });
+                        qv.previousQuestion();
+                      }
+                    : null,
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                label: const Text("Previous"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF4F46E5),
+                  side: BorderSide(
+                    color: qv.currentIndex > 0
+                        ? const Color(0xFF4F46E5)
+                        : Colors.grey.shade300,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
               ),
             ),
-            if (label == "Next") ...[
-              const SizedBox(width: 8),
-              Icon(icon, size: 14, color: enabled ? const Color(0xFF1B75BB) : Colors.grey)
-            ],
-          ],
-        ),
+          ),
+
+          const SizedBox(width: 15),
+
+          /// Next
+          Expanded(
+            child: SizedBox(
+              height: 55,
+              child: ElevatedButton.icon(
+                onPressed: qv.currentIndex < qv.qaList.length - 1
+                    ? () {
+                        setState(() {
+                          _showAnswer = false;
+                        });
+                        qv.nextQuestion();
+                      }
+                    : null,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text("Next"),
+                iconAlignment: IconAlignment.end,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -287,8 +488,12 @@ class ShimmerPlaceholder extends StatelessWidget {
   final double width;
   final double height;
   final double borderRadius;
-  const ShimmerPlaceholder(
-      {super.key, required this.width, required this.height, this.borderRadius = 8});
+  const ShimmerPlaceholder({
+    super.key,
+    required this.width,
+    required this.height,
+    this.borderRadius = 8,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +504,9 @@ class ShimmerPlaceholder extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(borderRadius)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(borderRadius),
+        ),
       ),
     );
   }

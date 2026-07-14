@@ -25,11 +25,11 @@ class ShimmerPlaceholder extends StatelessWidget {
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
       child: Container(
-        width: width,
-        height: height,
+        margin: const EdgeInsets.only(bottom: 16),
+        height: 92,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: BorderRadius.circular(28),
         ),
       ),
     );
@@ -54,6 +54,14 @@ class QuestionBankPage extends StatefulWidget {
 }
 
 class _QuestionBankPageState extends State<QuestionBankPage> {
+  final List<Color> themeColors = const [
+    Color(0xFF4F46E5), // Indigo
+    Color(0xFF10B981), // Emerald
+    Color(0xFFF43F5E), // Pink
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFFF59E0B), // Orange
+  ];
   @override
   void initState() {
     super.initState();
@@ -143,9 +151,14 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
 
   PreferredSizeWidget _buildTabBar() {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(50),
+      preferredSize: const Size.fromHeight(60),
       child: Padding(
-        padding: const EdgeInsets.only(left: 10, right: 10, bottom: 10),
+        padding: const EdgeInsets.only(
+          left: 15,
+          right: 15,
+          top: 10,
+          bottom: 10,
+        ),
         child: TabBar(
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
@@ -178,31 +191,31 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
             : "Mark: ${item['mark']}";
 
         return _buildQBankCard(
-          title,
-          "${item['question_count']} Questions",
+          title: title,
+          subtitle: "${item['question_count']} Questions",
+          color: themeColors[index % themeColors.length],
           onTap: () => _onCardTap(item, isChapter, title),
         );
       },
     );
   }
 
-  Future<void> _onCardTap(
-      dynamic item, bool isChapter, String title) async {
+  Future<void> _onCardTap(dynamic item, bool isChapter, String title) async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      ),
+      builder: (_) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
     );
 
-    final questions =
-    await context.read<QuestionBankProvider>().fetchQuestionSet(
-      isChapter: isChapter,
-      subjectId: widget.subjectId,
-      classId: widget.classId,
-      item: item,
-    );
+    final questions = await context
+        .read<QuestionBankProvider>()
+        .fetchQuestionSet(
+          isChapter: isChapter,
+          subjectId: widget.subjectId,
+          classId: widget.classId,
+          item: item,
+        );
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -220,56 +233,97 @@ class _QuestionBankPageState extends State<QuestionBankPage> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Could not retrieve questions."),
-        ),
+        const SnackBar(content: Text("Could not retrieve questions.")),
       );
     }
   }
 
-  Widget _buildQBankCard(
-      String title,
-      String subtitle, {
-        required VoidCallback onTap,
-      }) {
+  Widget _buildQBankCard({
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: ListTile(
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        onTap: onTap,
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis, // 🔹 prevents overflow
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 17,
-            color: AppColors.textHeadingBlack,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onTap,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: color.withOpacity(.30), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                /// Left Icon
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.fact_check_rounded, color: color, size: 28),
+                ),
+
+                const SizedBox(width: 16),
+
+                /// Text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1F2937),
+                        ),
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                /// Right Arrow
+                CircleAvatar(
+                  radius: 19,
+                  backgroundColor: color,
+                  child: const Icon(
+                    Icons.keyboard_arrow_right_rounded,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(
-            color: AppColors.textSubtitle,
-            fontSize: 14,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey,
         ),
       ),
     );
