@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'widgets.dart/gradient_button.dart';
 import 'profile.dart';
 import 'login.dart';
-import 'package:glapod/utils/device_utils.dart';
+import 'package:Edmaster/utils/device_utils.dart';
 import 'services/auth_service.dart';
 import 'utils/ui_utils.dart';
 import 'storage/local_storage_service.dart';
@@ -41,15 +41,9 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
 
   void _handleLogout(BuildContext context) async {
     try {
-      String deviceId = await DeviceService.getDeviceId();
+      final result = await AuthService.logout();
 
-debugPrint("LOGOUT DEVICE ID => $deviceId");
-
-final result = await AuthService.logout(
-  deviceId: deviceId,
-);
-
-debugPrint("LOGOUT RESPONSE => $result");
+      debugPrint("LOGOUT RESPONSE => $result");
     } catch (e) {
       debugPrint("LOGOUT ERROR => $e");
     }
@@ -136,7 +130,10 @@ debugPrint("LOGOUT RESPONSE => $result");
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                     colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
+                    colors: [
+                      Color(0xfff16704),
+                      Color.fromARGB(255, 249, 116, 22),
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -156,12 +153,13 @@ debugPrint("LOGOUT RESPONSE => $result");
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      apiMessage, // MESSAGE FROM API
+                      apiMessage,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         color: Colors.black87,
-                        height: 1.4,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -171,7 +169,10 @@ debugPrint("LOGOUT RESPONSE => $result");
                       child: GradientButton(
                         text: 'Yes, Continue',
                         gradient: const LinearGradient(
-                           colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
+                          colors: [
+                            Color(0xfff16704),
+                            Color.fromARGB(255, 249, 116, 22),
+                          ],
                         ),
                         onPressed: () {
                           Navigator.pop(context); // Close Popup
@@ -322,7 +323,10 @@ debugPrint("LOGOUT RESPONSE => $result");
                           : GradientButton(
                               text: 'Activate & Continue',
                               gradient: const LinearGradient(
-                                 colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
+                                colors: [
+                                  Color(0xfff16704),
+                                  Color.fromARGB(255, 249, 116, 22),
+                                ],
                               ),
                               onPressed: _handleInitialCheck, // STARTS FLOW
                             ),

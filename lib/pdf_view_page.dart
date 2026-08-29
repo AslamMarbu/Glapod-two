@@ -212,12 +212,16 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
               controller: _pdfController!,
               scrollDirection: Axis.horizontal,
               pageSnapping: true,
-              renderer: (PdfPage page) => page.render(
-                width: page.width,
-                height: page.height,
-                format: PdfPageImageFormat.png,
-                backgroundColor: '#FFFFFF',
-              ),
+              renderer: (PdfPage page) {
+                const double renderScale = 3.0;
+
+                return page.render(
+                  width: page.width * renderScale,
+                  height: page.height * renderScale,
+                  format: PdfPageImageFormat.png,
+                  backgroundColor: '#FFFFFF',
+                );
+              },
             ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:glapod/pdf_view_page.dart';
-import 'package:glapod/utils/app_colors.dart';
+import 'package:Edmaster/pdf_view_page.dart';
+import 'package:Edmaster/utils/app_colors.dart';
 
 class CircularIconButton extends StatelessWidget {
   final IconData icon;

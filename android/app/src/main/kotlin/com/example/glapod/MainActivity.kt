@@ -1,4 +1,4 @@
-package com.example.glapod
+package com.edmaster.learning
 
 import io.flutter.embedding.android.FlutterActivity
 

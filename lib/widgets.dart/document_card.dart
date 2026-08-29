@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:glapod/utils/app_colors.dart';
-import 'package:glapod/utils/string_utilities.dart';
+import 'package:Edmaster/utils/app_colors.dart';
+import 'package:Edmaster/utils/string_utilities.dart';
 import 'package:lottie/lottie.dart'; // 🔹 1. Added Lottie import
 
 class DocumentCard extends StatelessWidget {

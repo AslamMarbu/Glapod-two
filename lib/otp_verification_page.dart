@@ -6,21 +6,18 @@ import 'free_trial_page.dart';
 import 'widgets.dart/gradient_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 class OtpVerificationPage extends StatefulWidget {
   final String mobile;
 
   const OtpVerificationPage({super.key, required this.mobile});
 
   @override
-  State<OtpVerificationPage> createState() =>
-      _OtpVerificationPageState();
+  State<OtpVerificationPage> createState() => _OtpVerificationPageState();
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _otpController =
-      TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
 
   bool _isLoading = false;
   bool _hasError = false;
@@ -44,12 +41,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       duration: const Duration(milliseconds: 500),
     );
 
-    _shakeAnimation =
-        Tween<double>(begin: 0, end: 10).animate(
-      CurvedAnimation(
-        parent: _shakeController,
-        curve: Curves.elasticIn,
-      ),
+    _shakeAnimation = Tween<double>(begin: 0, end: 10).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
   }
 
@@ -58,17 +51,14 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
     _canResend = false;
 
     _timer?.cancel();
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        if (_secondsRemaining > 0) {
-          setState(() => _secondsRemaining--);
-        } else {
-          setState(() => _canResend = true);
-          timer.cancel();
-        }
-      },
-    );
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        setState(() => _secondsRemaining--);
+      } else {
+        setState(() => _canResend = true);
+        timer.cancel();
+      }
+    });
   }
 
   @override
@@ -92,8 +82,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       _hasError = false;
     });
 
-    final response =
-        await AuthService.verifyOtp(widget.mobile, otp);
+    final response = await AuthService.verifyOtp(widget.mobile, otp);
 
     setState(() => _isLoading = false);
 
@@ -106,9 +95,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const FreeTrialPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const FreeTrialPage()),
       );
     } else {
       // ❌ WRONG OTP
@@ -124,8 +111,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
   Future<void> resendOtp() async {
     if (!_canResend) return;
 
-    final response =
-        await AuthService.sendOtp(widget.mobile);
+    final response = await AuthService.sendOtp(widget.mobile);
 
     if (response['status'] == true) {
       showMessage("OTP Resent Successfully");
@@ -136,9 +122,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
   }
 
   void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -150,9 +136,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: _hasError ? Colors.red : Colors.grey,
-        ),
+        border: Border.all(color: _hasError ? Colors.red : Colors.grey),
       ),
     );
 
@@ -174,10 +158,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
               children: [
                 const Text(
                   'Verify OTP',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
 
                 const SizedBox(height: 25),
@@ -188,11 +169,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                   builder: (context, child) {
                     return Transform.translate(
                       offset: Offset(
-                          _shakeAnimation.value *
-                              (1 -
-                                  (_shakeController.value *
-                                      2).abs()),
-                          0),
+                        _shakeAnimation.value *
+                            (1 - (_shakeController.value * 2).abs()),
+                        0,
+                      ),
                       child: child,
                     );
                   },
@@ -202,9 +182,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                     enabled: !_isLoading,
                     defaultPinTheme: defaultPinTheme,
                     //onCompleted: (value) {
-                     // verifyOtp();
-                   // },
-                   onTap: () {
+                    // verifyOtp();
+                    // },
+                    onTap: () {
                       if (_hasError) {
                         setState(() => _hasError = false);
                       }
@@ -218,13 +198,11 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                   width: double.infinity,
                   height: 50,
                   child: GradientButton(
-                    text:
-                        _isLoading ? "Verifying..." : "Verify OTP",
+                    text: _isLoading ? "Verifying..." : "Verify OTP",
                     gradient: const LinearGradient(
                       colors: [Color(0xFF0A6ED1), Color(0xFF6BCF2E)],
                     ),
-                    onPressed:
-                        _isLoading ? null : verifyOtp,
+                    onPressed: _isLoading ? null : verifyOtp,
                   ),
                 ),
 
@@ -236,14 +214,12 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                         onPressed: resendOtp,
                         child: const Text(
                           "Resend OTP",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold),
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       )
                     : Text(
                         "Resend OTP in $_secondsRemaining seconds",
-                        style: const TextStyle(
-                            color: Colors.grey),
+                        style: const TextStyle(color: Colors.grey),
                       ),
               ],
             ),

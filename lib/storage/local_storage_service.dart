@@ -24,23 +24,27 @@ class LocalStorageService {
   }) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // 1. Save the Bearer Token
     await prefs.setString(_keyToken, token);
+    await prefs.setString(_keyStudent, jsonEncode(studentData));
 
-    // 2. Save the Student Profile
-    String studentJson = jsonEncode(studentData);
-    await prefs.setString(_keyStudent, studentJson);
+    final String? createdOn = studentData['account_created_on']?.toString();
 
-    // 3. AUTOMATIC TRIAL CALCULATION
-    DateTime createdAt = studentData['account_created_on'] != null
-        ? DateTime.parse(studentData['account_created_on'])
-        : DateTime.now();
+    final int trialAllowed =
+        int.tryParse(studentData['trail_time']?.toString() ?? '15') ?? 15;
 
-    int trialAllowed = studentData['trail_time'] ?? 7;
-    int daysUsed = DateTime.now().difference(createdAt).inDays;
-    int remaining = trialAllowed - daysUsed;
+    int remaining = trialAllowed;
 
-    // Save the integer directly for easy access in UI
+    if (createdOn != null && createdOn.isNotEmpty) {
+      try {
+        final DateTime createdAt = DateTime.parse(createdOn);
+        final int daysUsed = DateTime.now().difference(createdAt).inDays;
+
+        remaining = (trialAllowed - daysUsed).clamp(0, trialAllowed);
+      } catch (_) {
+        remaining = trialAllowed;
+      }
+    }
+
     await prefs.setInt(_keyTrialDays, remaining);
     await prefs.setBool(_keyIsLoggedIn, true);
   }
@@ -48,20 +52,7 @@ class LocalStorageService {
   static Future<void> updateStudentData(
     Map<String, dynamic> studentData,
   ) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Update Profile
-    await prefs.setString(_keyStudent, jsonEncode(studentData));
-
-    // Update Trial Math (Same as above)
-    DateTime createdAt = studentData['account_created_on'] != null
-        ? DateTime.parse(studentData['account_created_on'])
-        : DateTime.now();
-    int trialAllowed = studentData['trail_time'] ?? 7;
-    int daysUsed = DateTime.now().difference(createdAt).inDays;
-    int remaining = trialAllowed - daysUsed;
-
-    await prefs.setInt(_keyTrialDays, remaining);
+    await updateStudentFromProfile(studentData);
   }
 
   static Future<void> updateStudentFromProfile(
@@ -69,19 +60,47 @@ class LocalStorageService {
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    // 1. Overwrite the student data (The 'user' from Profile API)
-    String studentJson = jsonEncode(user);
-    await prefs.setString(_keyStudent, studentJson);
+    // Get the student data already saved from login
+    Map<String, dynamic> existingStudent = {};
 
-    // 2. Re-calculate and Overwrite Trial Days (Same logic as your Login)
-    if (user['account_created_on'] != null) {
-      DateTime createdAt = DateTime.parse(user['account_created_on']);
-      int trialAllowed = user['trail_time'] ?? 7;
-      int daysUsed = DateTime.now().difference(createdAt).inDays;
-      int remaining = trialAllowed - daysUsed;
+    final String? existingJson = prefs.getString(_keyStudent);
 
-      // Update the specific trial days key
-      await prefs.setInt(_keyTrialDays, remaining);
+    if (existingJson != null && existingJson.isNotEmpty) {
+      try {
+        existingStudent = Map<String, dynamic>.from(jsonDecode(existingJson));
+      } catch (e) {
+        existingStudent = {};
+      }
+    }
+
+    // MERGE instead of replacing.
+    // Existing login fields such as:
+    // key, trail_time, account_created_on,
+    // subscription_start, subscription_end
+    // will remain unless the profile API provides newer values.
+    final Map<String, dynamic> mergedStudent = {...existingStudent, ...user};
+
+    // Save merged student
+    await prefs.setString(_keyStudent, jsonEncode(mergedStudent));
+
+    // Recalculate trial days
+    final String? createdOn = mergedStudent['account_created_on']?.toString();
+
+    if (createdOn != null && createdOn.isNotEmpty) {
+      try {
+        final DateTime createdAt = DateTime.parse(createdOn);
+
+        final int trialAllowed =
+            int.tryParse(mergedStudent['trail_time']?.toString() ?? '15') ?? 15;
+
+        final int daysUsed = DateTime.now().difference(createdAt).inDays;
+
+        final int remaining = (trialAllowed - daysUsed).clamp(0, trialAllowed);
+
+        await prefs.setInt(_keyTrialDays, remaining);
+      } catch (e) {
+        // Keep the previous trial value if date parsing fails.
+      }
     }
   }
 
@@ -181,11 +200,12 @@ class LocalStorageService {
     else if (key == "trial") {
       if (createdOnStr.isNotEmpty) {
         try {
-          DateTime createdOn = DateTime.parse(createdOnStr);
-          // Ensure duration is handled as int even if it comes as a string
-          int duration =
-              int.tryParse(student['trail_time']?.toString() ?? "7") ?? 7;
-          DateTime expiry = createdOn.add(Duration(days: duration));
+          final DateTime createdOn = DateTime.parse(createdOnStr);
+
+          final int duration =
+              int.tryParse(student['trail_time']?.toString() ?? "15") ?? 15;
+
+          final DateTime expiry = createdOn.add(Duration(days: duration));
 
           currentStatus = now.isBefore(expiry)
               ? LicenseStatus.trialing

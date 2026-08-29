@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:glapod/widgets.dart/appbar_page.dart';
+import 'package:Edmaster/widgets.dart/appbar_page.dart';
 import 'services/student_service.dart';
 
 class NotificationPage extends StatelessWidget {

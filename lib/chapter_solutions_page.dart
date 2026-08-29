@@ -3,7 +3,7 @@ import 'package:shimmer/shimmer.dart'; // 🔹 Import shimmer package
 import 'widgets.dart/appbar_page.dart';
 import 'services/student_service.dart';
 import 'chapter_solution_details.dart';
-import 'package:glapod/utils/app_colors.dart';
+import 'package:Edmaster/utils/app_colors.dart';
 import 'widgets.dart/empty_state_widget.dart';
 import 'storage/local_storage_service.dart';
 

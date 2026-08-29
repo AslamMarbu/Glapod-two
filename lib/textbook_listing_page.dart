@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:glapod/pdf_view_page.dart';
+import 'package:Edmaster/pdf_view_page.dart';
+
 import '../providers/textbook_provider.dart';
 import 'widgets.dart/appbar_page.dart';
-import 'widgets.dart/document_card.dart'; // 🔹 Import your global card
+import 'widgets.dart/document_card.dart';
 
 class TextbookListingPage extends StatefulWidget {
   final String subjectName;
@@ -21,26 +22,44 @@ class TextbookListingPage extends StatefulWidget {
 }
 
 class _TextbookListingPageState extends State<TextbookListingPage> {
+  Future<void> _handleAction(
+    TextbookProvider provider,
+    String url,
+    String title,
+  ) async {
+    if (url.isEmpty || url == 'null') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Textbook file is not available.')),
+        );
+      }
 
-  Future<void> _handleAction(TextbookProvider provider, String url, String title) async {
+      return;
+    }
+
     final file = await provider.getBook(url);
 
-    if (file != null && mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PdfViewerPage(
-            url: file.path,
-            title: title,
-            isLocal: true,
-          ),
+    if (!mounted) {
+      return;
+    }
+
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to download textbook. Please try again.'),
         ),
       );
-    } else if (mounted && url.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error opening textbook")),
-      );
+
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            PdfViewerPage(url: file.path, title: title, isLocal: true),
+      ),
+    );
   }
 
   @override
@@ -49,31 +68,57 @@ class _TextbookListingPageState extends State<TextbookListingPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1FAF2),
+
       appBar: CustomAppBar(
         height: 40,
-        title: "${widget.subjectName} Textbooks",
+        title: '${widget.subjectName} Textbooks',
         isDashboard: false,
       ),
-      body: widget.textbooks.isEmpty
-          ? _buildShimmerList()
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: widget.textbooks.length,
-        itemBuilder: (context, index) {
-          final fileUrl = widget.textbooks[index]['file'] ?? "";
-          final String title =  widget.textbooks[index]['author_name'] ?? "${widget.subjectName} Textbook";
-          final String subtitle = "Part ${index + 1}";
 
-          // 🔹 Using the standardized Global Card
-          return DocumentCard(
-            title: title,
-            subtitle: subtitle,
-            isDownloading: provider.isLoading(fileUrl),
-            isDownloadedFuture: provider.isFileValid(fileUrl),
-            onTap: () => _handleAction(provider, fileUrl, "$title - $subtitle"),
-          );
-        },
-      ),
+      body: widget.textbooks.isEmpty
+          ? const Center(
+              child: Text(
+                'No textbooks found.',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+
+              itemCount: widget.textbooks.length,
+
+              itemBuilder: (context, index) {
+                final dynamic book = widget.textbooks[index];
+
+                final String fileUrl = (book['file'] ?? '').toString();
+
+                final String title =
+                    (book['author_name'] ?? '${widget.subjectName} Textbook')
+                        .toString();
+
+                final String subtitle = 'Part ${index + 1}';
+
+                if (fileUrl.isEmpty || fileUrl == 'null') {
+                  return const SizedBox.shrink();
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+
+                  child: DocumentCard(
+                    title: title,
+                    subtitle: subtitle,
+
+                    isDownloading: provider.isLoading(fileUrl),
+
+                    isDownloadedFuture: provider.isFileValid(fileUrl),
+
+                    onTap: () =>
+                        _handleAction(provider, fileUrl, '$title - $subtitle'),
+                  ),
+                );
+              },
+            ),
     );
   }
 

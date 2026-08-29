@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/prediction_name_provider.dart';
-import '../services/student_service.dart';
 import '../utils/app_colors.dart';
 import 'prediction_name_grid_page.dart';
 import 'widgets.dart/appbar_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // --- REUSABLE SHIMMER COMPONENT ---
 class ShimmerPlaceholder extends StatelessWidget {
@@ -63,14 +64,19 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _focusNodes = [];
 
-  final TextEditingController _feedbackController = TextEditingController();
-  final int _maxFeedbackLength = 300;
-  String? _feedbackError;
+  Timer? _imageSliderTimer;
+  bool _isUserTouchingSlider = false;
+  List<String> _currentSliderImages = [];
 
   int _currentImageIndex = 0;
   String _correctAnswer = "";
   dynamic _currentQuestionId;
   bool _isInitialized = false;
+
+  bool _isRestartingQuestions = false;
+
+  // 👁️ Reveal feature state
+  bool _showAnswerReveal = false;
 
   @override
   void initState() {
@@ -81,7 +87,7 @@ class _PredictionNamePageState extends State<PredictionNamePage>
     );
     _pageController = PageController();
     _scrollController = ScrollController();
-    Future.microtask(() => _fetchNewQuestion());
+    Future.microtask(() => _fetchNewQuestion(status: "new"));
   }
 
   void _fetchNewQuestion({String? status}) {
@@ -94,28 +100,120 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   }
 
   void _resetLocalState() {
+    _stopImageAutoSlide();
+
     setState(() {
       _isInitialized = false;
+      _showAnswerReveal = false;
       _currentImageIndex = 0;
-      _feedbackController.clear();
-      if (_pageController.hasClients) _pageController.jumpToPage(0);
-      for (var c in _controllers) c.dispose();
-      for (var f in _focusNodes) f.dispose();
+
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+
+      for (var c in _controllers) {
+        c.dispose();
+      }
+
+      for (var f in _focusNodes) {
+        f.dispose();
+      }
+
       _controllers.clear();
       _focusNodes.clear();
     });
   }
 
+  void _startImageAutoSlide(List<String> images) {
+    _imageSliderTimer?.cancel();
+
+    _currentSliderImages = images;
+
+    if (images.length <= 1) return;
+
+    _imageSliderTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
+      if (!mounted) return;
+      if (_isUserTouchingSlider) return;
+      if (!_pageController.hasClients) return;
+      if (_currentSliderImages.length <= 1) return;
+
+      int nextIndex = _currentImageIndex + 1;
+
+      if (nextIndex >= _currentSliderImages.length) {
+        nextIndex = 0;
+      }
+
+      _pageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _stopImageAutoSlide() {
+    _imageSliderTimer?.cancel();
+    _imageSliderTimer = null;
+  }
+
+  Future<void> _preloadQuestionImages(List<String> images) async {
+    if (!mounted || images.isEmpty) return;
+
+    final List<String> validImages = images
+        .where((url) => url.isNotEmpty && url != 'null')
+        .toList();
+
+    if (validImages.isEmpty) return;
+
+    try {
+      await precacheImage(
+        CachedNetworkImageProvider(validImages.first),
+        context,
+      );
+    } catch (e) {
+      debugPrint('First image preload failed: ${validImages.first} - $e');
+    }
+
+    if (!mounted) return;
+
+    for (int i = 1; i < validImages.length; i++) {
+      if (!mounted) return;
+
+      final String imageUrl = validImages[i];
+
+      try {
+        await precacheImage(CachedNetworkImageProvider(imageUrl), context);
+      } catch (e) {
+        debugPrint('Background image preload failed: $imageUrl - $e');
+      }
+    }
+  }
+
   void _setupGame(Map<String, dynamic> questionData) {
+    _isRestartingQuestions = false;
+
     _currentQuestionId = questionData['id'];
+
+    final List<String> questionImages = List<String>.from(
+      questionData['images'] ?? [],
+    );
+
+    if (!_isInitialized && questionImages.isNotEmpty) {
+      _startImageAutoSlide(questionImages);
+    }
+
+    // Only trigger once per loaded question.
+    if (!_isInitialized && questionImages.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _preloadQuestionImages(questionImages);
+        }
+      });
+    }
 
     String rawValue = (questionData['answer'] ?? questionData['name'] ?? "")
         .toString();
     _correctAnswer = rawValue.toUpperCase();
-
-    if (_feedbackController.text.isEmpty && questionData['feedback'] != null) {
-      _feedbackController.text = questionData['feedback'].toString();
-    }
 
     if (_isInitialized) return;
 
@@ -172,17 +270,11 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   }
 
   Future<void> _handleNext() async {
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    if (enteredWord != _correctAnswer.replaceAll(" ", "")) {
+    String enteredWord = _enteredWord();
+
+    if (enteredWord != _cleanCorrectAnswer()) {
       _triggerShake();
       return;
-    }
-
-    if (_feedbackController.text.trim().isNotEmpty) {
-      await StudentService.submitGuessNameFeedback(
-        guessNameId: _currentQuestionId.toString(),
-        feedback: _feedbackController.text.trim(),
-      );
     }
 
     _fetchNewQuestion();
@@ -203,12 +295,21 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
   @override
   void dispose() {
+    _imageSliderTimer?.cancel();
+
     _shakeController.dispose();
     _pageController.dispose();
-    for (var c in _controllers) c.dispose();
-    for (var f in _focusNodes) f.dispose();
+
+    for (var c in _controllers) {
+      c.dispose();
+    }
+
+    for (var f in _focusNodes) {
+      f.dispose();
+    }
+
     _scrollController.dispose();
-    _feedbackController.dispose();
+
     super.dispose();
   }
 
@@ -224,7 +325,6 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
-
       appBar: CustomAppBar(
         height: 70,
         title: widget.categoryName,
@@ -236,7 +336,6 @@ class _PredictionNamePageState extends State<PredictionNamePage>
               borderRadius: BorderRadius.circular(15),
               onTap: () {
                 setState(() => _isInitialized = false);
-
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -266,8 +365,13 @@ class _PredictionNamePageState extends State<PredictionNamePage>
           ),
         ],
       ),
-
-      body: game.isLoading ? _buildShimmerLoading() : _buildGameContent(game),
+      body: game.isLoading
+          ? _buildShimmerLoading()
+          : game.hasNoData
+          ? _buildNoQuestionsFound()
+          : game.isCompleted
+          ? _buildQuizCompleted()
+          : _buildGameContent(game),
     );
   }
 
@@ -329,139 +433,252 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   }
 
   Widget _buildGameContent(PredictionGameProvider game) {
-    if (game.isCompleted) {
-      return _buildStatusView(
-        title: "Level Completed!",
-        message: "Outstanding! You have found all the words in this level.",
-        icon: Icons.emoji_events_rounded,
-        iconColor: Colors.orangeAccent,
-        buttonText: "Play Again",
-        onBtnPressed: () => _fetchNewQuestion(status: "new"),
-      );
-    }
-
     final response = game.currentResponse;
-    if (response == null || response['status'].toString() == "false") {
-      return _buildStatusView(
-        title: "No More Questions",
-        message:
-            response?['message'] ??
-            "You've caught up with all questions for now!",
-        icon: Icons.check_circle_outline_rounded,
-        iconColor: Colors.green,
-        buttonText: "Go Back",
-        onBtnPressed: () => Navigator.pop(context),
-      );
+
+    if (response == null) {
+      return const SizedBox.shrink();
     }
 
-    if (_correctAnswer.isEmpty) return const SizedBox.shrink();
+    if (response['question'] == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (_correctAnswer.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final images = List<String>.from(response['question']['images'] ?? []);
-    print("Images: $images");
+
     final dynamicNotes =
         response['question']['notes'] ??
         response['question']['description'] ??
         "No notes available.";
+
     final dynamicRemarks = response['question']['remarks'] ?? "GENERAL";
 
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    bool isCorrect = enteredWord == _correctAnswer.replaceAll(" ", "");
+    final String enteredWord = _enteredWord();
+    final bool isCorrect = enteredWord == _cleanCorrectAnswer();
+
+    final bool isBeginnerMode = widget.level.toLowerCase() == "beginner";
+
+    final bool keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
             controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.only(bottom: keyboardOpen ? 4 : 14),
             child: Column(
               children: [
                 const SizedBox(height: 16),
+
                 if (images.isNotEmpty) _buildCardImageSlider(images),
 
-                // Decorative Middle Visual Badge
-                Transform.translate(
-                  offset: const Offset(0, -18),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.visibility_outlined,
-                      color: Color(0xFF5A44C4),
-                      size: 28,
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 14),
 
-                // Center Decorated Word Category/Title Title Text
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 25,
-                        height: 1,
-                        color: Colors.grey.shade300,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        _correctAnswer,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                          color: Color(0xFF322881),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        width: 25,
-                        height: 1,
-                        color: Colors.grey.shade300,
-                      ),
-                    ],
-                  ),
-                ),
+                _buildAnswerHeader(isBeginnerMode: isBeginnerMode),
 
-                const SizedBox(height: 20),
+                SizedBox(height: keyboardOpen ? 8 : 14),
+
                 _buildInputGrid(),
-                const SizedBox(height: 15),
-                _buildStatusIcon(),
-                const SizedBox(height: 15),
-                _buildRemarksCard(dynamicRemarks),
-                const SizedBox(height: 16),
 
-                if (isCorrect) ...[
-                  _buildNotesBox(dynamicNotes),
-                  const SizedBox(height: 16),
+                if (!keyboardOpen) ...[
+                  const SizedBox(height: 14),
+
+                  _buildRemarksCard(dynamicRemarks),
+
+                  if (isCorrect) ...[
+                    const SizedBox(height: 12),
+                    _buildNotesBox(dynamicNotes),
+                  ],
                 ],
-
-                _buildFeedbackCard(),
-                const SizedBox(height: 30),
               ],
             ),
           ),
         ),
-        _buildBottomButton(),
+
+        SafeArea(
+          top: false,
+          minimum: EdgeInsets.fromLTRB(
+            28,
+            keyboardOpen ? 4 : 8,
+            28,
+            keyboardOpen ? 4 : 10,
+          ),
+          child: _buildBottomButton(),
+        ),
       ],
     );
   }
 
-  Widget _buildInputGrid() {
-    String targetPhrase = _correctAnswer.toUpperCase();
+  Widget _buildQuizCompleted() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Icon(
+                Icons.emoji_events_rounded,
+                size: 58,
+                color: Color(0xFF2E7D32),
+              ),
+            ),
 
-    // 1. Group letter indices cleanly by word boundaries to preserve exact global controller tracking
-    List<List<int>> wordIndices = [];
+            const SizedBox(height: 26),
+
+            const Text(
+              'Category Completed!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              'Great job! You have completed all available questions '
+              'in this category for this level.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.5,
+                color: Colors.grey.shade600,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'You can return to the categories and choose another topic '
+              'or play this category again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.grey.shade500,
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            SizedBox(
+              width: 190,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                label: const Text(
+                  'Choose Category',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRestartShimmer() {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  Widget _buildAnswerHeader({required bool isBeginnerMode}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(width: 22, height: 1, color: Colors.grey.shade300),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              isBeginnerMode ? _correctAnswer : "GUESS THE NAME",
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: isBeginnerMode ? 22 : 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: isBeginnerMode ? 1.5 : 1.2,
+                color: isBeginnerMode
+                    ? const Color(0xFF322881)
+                    : Colors.grey.shade500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(width: 22, height: 1, color: Colors.grey.shade300),
+          if (!isBeginnerMode) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: Icon(
+                _showAnswerReveal
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                size: 21,
+                color: _showAnswerReveal
+                    ? const Color(0xFF5A44C4)
+                    : Colors.grey.shade400,
+              ),
+              onPressed: () {
+                setState(() {
+                  _showAnswerReveal = !_showAnswerReveal;
+                });
+              },
+              tooltip: "Toggle Hint Layer",
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _enteredWord() {
+    final buffer = StringBuffer();
+    for (int i = 0; i < _controllers.length; i++) {
+      if (i < _correctAnswer.length && _correctAnswer[i] == ' ') continue;
+      buffer.write(_controllers[i].text.toUpperCase());
+    }
+    return buffer.toString();
+  }
+
+  String _cleanCorrectAnswer() => _correctAnswer.replaceAll(' ', '');
+
+  Widget _buildInputGrid() {
+    final String targetPhrase = _correctAnswer.toUpperCase();
+
+    final List<List<int>> wordIndices = [];
     List<int> currentWord = [];
 
     for (int i = 0; i < targetPhrase.length; i++) {
@@ -474,55 +691,92 @@ class _PredictionNamePageState extends State<PredictionNamePage>
         currentWord.add(i);
       }
     }
+
     if (currentWord.isNotEmpty) {
       wordIndices.add(currentWord);
     }
 
-    return AnimatedBuilder(
-      animation: _shakeController,
-      builder: (context, child) {
-        double offset = _shakeController.isAnimating
-            ? (0.5 - (0.5 - _shakeController.value).abs()) * 15
-            : 0.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double sidePadding = 24;
+        const double letterSpacing = 4;
 
-        return Transform.translate(
-          offset: Offset(offset, 0),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 16, // 🔹 Natural spacing between distinct words
-              runSpacing:
-                  12, // 🔹 Vertical gap when an entire word wraps downward
-              alignment: WrapAlignment.center,
-              children: wordIndices.map((indices) {
-                return Wrap(
-                  spacing:
-                      4, // 🔹 Fine-tuned internal spacing between individual letters
-                  children: indices
-                      .map((index) => _buildModernInputBox(index))
-                      .toList(),
-                );
-              }).toList(),
-            ),
-          ),
+        final double availableWidth = constraints.maxWidth - sidePadding;
+
+        final int longestWordLength = wordIndices.isEmpty
+            ? 1
+            : wordIndices
+                  .map((word) => word.length)
+                  .reduce((a, b) => a > b ? a : b);
+
+        final double totalSpacing = (longestWordLength - 1) * letterSpacing;
+
+        double boxWidth = (availableWidth - totalSpacing) / longestWordLength;
+
+        // Short words keep comfortable boxes, long words automatically shrink.
+        boxWidth = boxWidth.clamp(22.0, 40.0).toDouble();
+
+        double boxHeight = (boxWidth * 1.25).clamp(36.0, 50.0).toDouble();
+
+        return AnimatedBuilder(
+          animation: _shakeController,
+          builder: (context, child) {
+            final double offset = _shakeController.isAnimating
+                ? (0.5 - (0.5 - _shakeController.value).abs()) * 15
+                : 0.0;
+
+            return Transform.translate(
+              offset: Offset(offset, 0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: wordIndices.map((indices) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(indices.length, (position) {
+                        final int index = indices[position];
+
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            right: position == indices.length - 1
+                                ? 0
+                                : letterSpacing,
+                          ),
+                          child: _buildModernInputBox(
+                            index,
+                            width: boxWidth,
+                            height: boxHeight,
+                          ),
+                        );
+                      }),
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildModernInputBox(int index) {
+  Widget _buildModernInputBox(
+    int index, {
+    required double width,
+    required double height,
+  }) {
     bool hasFocus = _focusNodes[index].hasFocus;
     bool hasText = _controllers[index].text.isNotEmpty;
 
-    // 1. Calculate validation states
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    String cleanCorrectAnswer = _correctAnswer.replaceAll(" ", "");
+    String enteredWord = _enteredWord();
+    String cleanCorrectAnswer = _cleanCorrectAnswer();
 
-    // Only validate colors if the user has filled out all the letters
     bool isWordComplete = enteredWord.length == cleanCorrectAnswer.length;
     bool isCorrect = enteredWord == cleanCorrectAnswer;
 
-    // 2. Dynamic Colors based on your requirements
     Color boxBgColor = Colors.white;
     Color borderColor = Colors.grey.shade200;
     double borderWidth = 1.2;
@@ -530,27 +784,36 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
     if (isWordComplete) {
       if (isCorrect) {
-        boxBgColor = const Color(0xFFE8F5E9); // Light green highlight
-        borderColor = Colors.green.shade600; // Green border
+        boxBgColor = const Color(0xFFE8F5E9);
+        borderColor = Colors.green.shade600;
         borderWidth = 2.0;
         textColor = Colors.green.shade900;
       } else {
-        boxBgColor = const Color(0xFFFFEBEE); // Light red highlight
-        borderColor = Colors.red.shade600; // Red border
+        boxBgColor = const Color(0xFFFFEBEE);
+        borderColor = Colors.red.shade600;
         borderWidth = 2.0;
         textColor = Colors.red.shade900;
       }
     } else if (hasText || hasFocus) {
-      boxBgColor = const Color(0xFFF2EFFF); // Purple tint when typing
+      boxBgColor = const Color(0xFFF2EFFF);
       if (hasFocus) {
-        borderColor = const Color(0xFF5A44C4); // Active purple border
+        borderColor = const Color(0xFF5A44C4);
         borderWidth = 2.0;
       }
     }
 
+    // Determine the actual letter solution at this absolute index position
+    String hiddenLetterHint = _correctAnswer[index];
+
+    final double fontSize = width < 28
+        ? 13
+        : width < 34
+        ? 15
+        : 18;
+
     return Container(
-      width: 38,
-      height: 50,
+      width: width,
+      height: height,
       decoration: BoxDecoration(
         color: boxBgColor,
         borderRadius: BorderRadius.circular(10),
@@ -567,10 +830,25 @@ class _PredictionNamePageState extends State<PredictionNamePage>
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // 👁️ Faded Reveal layer placeholder inside the stack
+          if (!hasText && _showAnswerReveal && hiddenLetterHint != " ")
+            Opacity(
+              opacity: 0.28,
+              child: Text(
+                hiddenLetterHint,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF5A44C4).withOpacity(0.6),
+                ),
+              ),
+            ),
+
+          // Core entered value
           Text(
             _controllers[index].text.toUpperCase(),
             style: TextStyle(
-              fontSize: 18,
+              fontSize: fontSize,
               fontWeight: FontWeight.bold,
               color: textColor,
             ),
@@ -592,17 +870,11 @@ class _PredictionNamePageState extends State<PredictionNamePage>
             onChanged: (value) {
               setState(() {});
 
-              // 🔹 Check if the entire word is now correct
-              String enteredWord = _controllers
-                  .map((c) => c.text.toUpperCase())
-                  .join("");
-              String cleanCorrectAnswer = _correctAnswer.replaceAll(" ", "");
+              String enteredWord = _enteredWord();
+              String cleanCorrectAnswer = _cleanCorrectAnswer();
 
               if (enteredWord == cleanCorrectAnswer) {
-                // Unfocus everything to drop the keyboard out of the way smoothly
                 _focusNodes[index].unfocus();
-
-                // Animate down to the bottom of the viewport
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   Future.delayed(const Duration(milliseconds: 300), () {
                     if (_scrollController.hasClients) {
@@ -615,7 +887,6 @@ class _PredictionNamePageState extends State<PredictionNamePage>
                   });
                 });
               } else if (value.isNotEmpty) {
-                // Normal auto-focus hopping logic
                 int nextIndex = index + 1;
                 if (nextIndex < _correctAnswer.length &&
                     _correctAnswer[nextIndex] == " ") {
@@ -636,81 +907,145 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   }
 
   Widget _buildCardImageSlider(List<String> images) {
-    double screenWidth = MediaQuery.of(context).size.width;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        height: screenWidth * 0.6,
-        width: screenWidth,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              PageView.builder(
-                controller: _pageController,
-                itemCount: images.length,
-                onPageChanged: (index) =>
-                    setState(() => _currentImageIndex = index),
-                itemBuilder: (context, index) => Image.network(
-                  images[index],
-                  fit: BoxFit.cover,
-                  width: screenWidth,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return const Center(child: CircularProgressIndicator());
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    print("Image Error: $error");
-                    print("Image URL: ${images[index]}");
-
-                    return Container(
-                      color: Colors.grey.shade200,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 60,
-                          color: Colors.red,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
               ),
-              if (_currentImageIndex > 0)
-                Positioned(
-                  left: 12,
-                  child: _buildArrowButton(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    onTap: () => _pageController.previousPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    ),
-                  ),
-                ),
-              if (_currentImageIndex < images.length - 1)
-                Positioned(
-                  right: 12,
-                  child: _buildArrowButton(
-                    icon: Icons.arrow_forward_ios_rounded,
-                    onTap: () => _pageController.nextPage(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    ),
-                  ),
-                ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Listener(
+              onPointerDown: (_) {
+                _isUserTouchingSlider = true;
+              },
+              onPointerUp: (_) {
+                _isUserTouchingSlider = false;
+              },
+              onPointerCancel: (_) {
+                _isUserTouchingSlider = false;
+              },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: images.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentImageIndex = index;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return CachedNetworkImage(
+                        imageUrl: images[index],
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        memCacheWidth: 1000,
+                        fadeInDuration: const Duration(milliseconds: 100),
+                        placeholderFadeInDuration: const Duration(
+                          milliseconds: 80,
+                        ),
+                        placeholder: (context, url) {
+                          return Shimmer.fromColors(
+                            baseColor: Colors.grey.shade200,
+                            highlightColor: Colors.grey.shade100,
+                            child: Container(
+                              width: double.infinity,
+                              height: double.infinity,
+                              color: Colors.white,
+                            ),
+                          );
+                        },
+                        errorWidget: (context, url, error) {
+                          return Container(
+                            color: Colors.grey.shade200,
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.broken_image_rounded,
+                              size: 50,
+                              color: Colors.redAccent,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+
+                  if (images.length > 1)
+                    Positioned(
+                      bottom: 12,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(images.length, (index) {
+                          final bool active = index == _currentImageIndex;
+
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: active ? 18 : 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.55),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
+                  if (images.length > 1 && _currentImageIndex > 0)
+                    Positioned(
+                      left: 12,
+                      child: _buildArrowButton(
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onTap: () {
+                          _pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      ),
+                    ),
+
+                  if (images.length > 1)
+                    Positioned(
+                      right: 12,
+                      child: _buildArrowButton(
+                        icon: Icons.arrow_forward_ios_rounded,
+                        onTap: () {
+                          int nextIndex = _currentImageIndex + 1;
+
+                          if (nextIndex >= images.length) {
+                            nextIndex = 0;
+                          }
+
+                          _pageController.animateToPage(
+                            nextIndex,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -735,8 +1070,6 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   }
 
   Widget _buildStatusIcon() {
-    // Clear out the icon layout entirely and leave a clean layout gap
-    // so your boxes don't flush tightly against the cards below them.
     return const SizedBox(height: 20);
   }
 
@@ -796,78 +1129,6 @@ class _PredictionNamePageState extends State<PredictionNamePage>
     );
   }
 
-  Widget _buildFeedbackCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF4F6FC),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _feedbackError != null
-                ? Colors.red
-                : const Color(0xFFE6EAF5),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                color: Color(0xFFE2E7F7),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline_rounded,
-                color: Color(0xFF3F51B5),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "FEEDBACK",
-                    style: TextStyle(
-                      color: Color(0xFF5A67BA),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  TextField(
-                    controller: _feedbackController,
-                    maxLength: _maxFeedbackLength,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: "Enter here...",
-                      hintStyle: TextStyle(color: Colors.grey),
-                      border: InputBorder.none,
-                      counterText: "",
-                      isCollapsed: true,
-                    ),
-                    onChanged: (value) => setState(
-                      () => _feedbackError = value.length > _maxFeedbackLength
-                          ? "Limit reached"
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildNotesBox(String notes) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -910,56 +1171,46 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   }
 
   Widget _buildBottomButton() {
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    bool isCorrect = enteredWord == _correctAnswer.replaceAll(" ", "");
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 30, left: 35, right: 35),
-      child: Center(
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: GestureDetector(
-            onTap: _handleNext,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isCorrect
-                      ? [const Color(0xFF432EA6), const Color(0xFF6C4EE0)]
-                      : [Colors.grey.shade400, Colors.grey.shade500],
-                ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        (isCorrect
-                                ? const Color(0xFF5A44C4)
-                                : Colors.transparent)
-                            .withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Next",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ],
-              ),
+    final String enteredWord = _enteredWord();
+    final bool isCorrect = enteredWord == _cleanCorrectAnswer();
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: GestureDetector(
+        onTap: isCorrect ? _handleNext : _triggerShake,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isCorrect
+                  ? [const Color(0xFF432EA6), const Color(0xFF6C4EE0)]
+                  : [Colors.grey.shade400, Colors.grey.shade500],
             ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              if (isCorrect)
+                BoxShadow(
+                  color: const Color(0xFF5A44C4).withOpacity(0.28),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+            ],
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Next",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),
+            ],
           ),
         ),
       ),
@@ -1026,6 +1277,97 @@ class _PredictionNamePageState extends State<PredictionNamePage>
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoQuestionsFound() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Icon(
+                Icons.image_search_rounded,
+                size: 55,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+
+            const SizedBox(height: 26),
+
+            const Text(
+              'No Questions Available',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              'There are currently no questions or images available '
+              'for this category.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.5,
+                color: Colors.grey.shade600,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'Please choose another category and continue playing.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Colors.grey.shade500,
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            SizedBox(
+              width: 190,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                label: const Text(
+                  'Choose Category',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
                   ),
                 ),
               ),

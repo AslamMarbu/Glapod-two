@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/student_service.dart';
@@ -10,6 +10,7 @@ import 'login.dart';
 import 'subscription_page.dart';
 import 'terms_condition_page.dart';
 import 'my_favourites_page.dart';
+import 'services/auth_service.dart';
 
 class ProfilePage extends StatefulWidget {
   final bool showSuccessMsg;
@@ -54,7 +55,8 @@ class _ProfilePageState extends State<ProfilePage> {
   String _rawMobile = "";
 
   bool _isClassSavedInStorage = false;
-  File? _imageFile;
+  Uint8List? _imageBytes;
+  XFile? _imageFile;
   String? _serverImageUrl;
 
   @override
@@ -150,7 +152,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   imageQuality: 50,
                 );
                 if (image != null) {
-                  setState(() => _imageFile = File(image.path));
+                  final bytes = await image.readAsBytes();
+
+                  setState(() {
+                    _imageFile = image;
+                    _imageBytes = bytes;
+                  });
                 }
                 if (mounted) Navigator.pop(context);
               },
@@ -164,7 +171,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   imageQuality: 50,
                 );
                 if (image != null) {
-                  setState(() => _imageFile = File(image.path));
+                  final bytes = await image.readAsBytes();
+
+                  setState(() {
+                    _imageFile = image;
+                    _imageBytes = bytes;
+                  });
                 }
                 if (mounted) Navigator.pop(context);
               },
@@ -175,14 +187,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _handleLogout(BuildContext context) async {
-    await LocalStorageService.logOut();
-    if (context.mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const MyHomePage()),
-        (route) => false,
-      );
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      final result = await AuthService.logout();
+
+      debugPrint("LOGOUT RESPONSE => $result");
+
+      if (result['status'] == true) {
+        await LocalStorageService.logOut();
+
+        if (context.mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const MyHomePage()),
+            (route) => false,
+          );
+        }
+      } else {
+        debugPrint("SERVER LOGOUT FAILED => ${result['message']}");
+      }
+    } catch (e) {
+      debugPrint("LOGOUT ERROR => $e");
     }
   }
 
@@ -214,20 +239,35 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       if (data['status'] == true) {
-        // 1. Persist the absolute newest data returned by the server locally
-        await LocalStorageService.updateStudentData(data['student']);
+        debugPrint("PROFILE RESPONSE STUDENT => ${data['student']}");
+
+        final student = Map<String, dynamic>.from(data['student']);
+
+        final String? returnedImage =
+            student['image']?.toString().isNotEmpty == true
+            ? student['image'].toString()
+            : student['profile_photo_url']?.toString().isNotEmpty == true
+            ? student['profile_photo_url'].toString()
+            : null;
+
+        // IMPORTANT:
+        // Do not destroy the previous image if API did not return one.
+        if (returnedImage == null && _serverImageUrl != null) {
+          student['image'] = _serverImageUrl;
+        }
+
+        await LocalStorageService.updateStudentData(student);
 
         if (mounted) {
           setState(() {
             _isClassSavedInStorage = true;
 
-            // 2. Update server URL string (Double-check if this needs your API Base URL prefix!)
-            _serverImageUrl =
-                data['student']['image'] ??
-                data['student']['profile_photo_url'];
+            if (returnedImage != null) {
+              _serverImageUrl = returnedImage;
 
-            // 3. Clear local file path ONLY after setting the newly received server URL safely
-            _imageFile = null;
+              // Only clear selected file when server actually returned the image
+              _imageFile = null;
+            }
           });
 
           Messenger.show(
@@ -236,8 +276,6 @@ class _ProfilePageState extends State<ProfilePage> {
             type: MessageType.success,
           );
 
-          // 4. Instead of replacing the screen and causing structural UI blink,
-          // cleanly pop back to the dashboard. The dashboard should reload data on resume.
           Navigator.pop(context);
         }
       } else {
@@ -317,7 +355,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         text: _isLoading ? 'Saving...' : 'Save & Continue',
                         onPressed: _isLoading ? () {} : _handleSaveProfile,
                         gradient: const LinearGradient(
-                           colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
+                          colors: [
+                            Color(0xfff16704),
+                            Color.fromARGB(255, 249, 116, 22),
+                          ],
                         ),
                       ),
                     ),
@@ -393,16 +434,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: CircleAvatar(
                   radius: 55,
                   backgroundColor: Colors.grey[200],
-                  backgroundImage: _imageFile != null
-                      ? FileImage(_imageFile!)
+                  backgroundImage: _imageBytes != null
+                      ? MemoryImage(_imageBytes!)
                       : (_serverImageUrl != null && _serverImageUrl!.isNotEmpty
-                                ? NetworkImage(
-                                    "$_serverImageUrl?v=${DateTime.now().millisecondsSinceEpoch}",
-                                  )
+                                ? NetworkImage(_serverImageUrl!)
                                 : null)
                             as ImageProvider?,
                   child:
-                      (_imageFile == null &&
+                      (_imageBytes == null &&
                           (_serverImageUrl == null || _serverImageUrl!.isEmpty))
                       ? Icon(
                           Icons.person_rounded,

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:glapod/questions_page.dart';
-import 'package:glapod/chapter_listing.dart';
-import 'package:glapod/question_bank.dart';
-import 'package:glapod/textbook_listing_page.dart';
-import 'package:glapod/sample_papers_page.dart';
+import 'package:Edmaster/questions_page.dart';
+import 'package:Edmaster/chapter_listing.dart';
+import 'package:Edmaster/question_bank.dart';
+import 'package:Edmaster/textbook_listing_page.dart';
+import 'package:Edmaster/sample_papers_page.dart';
 
 class SubjectCard extends StatefulWidget {
   final String subjectId;

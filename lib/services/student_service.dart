@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:glapod/storage/local_storage_service.dart';
-import 'package:glapod/constants/api_constants.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:Edmaster/storage/local_storage_service.dart';
+import 'package:Edmaster/constants/api_constants.dart';
 import '../models/question_year_model.dart';
 import 'package:dio/dio.dart';
 import 'dio_client.dart';
 import 'dart:io';
 import 'package:http_parser/http_parser.dart';
+import 'package:flutter/foundation.dart';
 
 class StudentService {
   static Future<void> syncStudentProfile() async {
@@ -77,13 +79,14 @@ class StudentService {
     required String name,
     required String email,
     required String classId,
-    File? imageFile,
+    XFile? imageFile,
   }) async {
     try {
       final token = await LocalStorageService.getToken();
-      var uri = Uri.parse("$baseUrl/api/profile/update");
 
-      var request = http.MultipartRequest("POST", uri);
+      final uri = Uri.parse("$baseUrl/api/profile/update");
+
+      final request = http.MultipartRequest("POST", uri);
 
       request.headers.addAll({
         "Authorization": "Bearer $token",
@@ -94,31 +97,62 @@ class StudentService {
       request.fields['email'] = email;
       request.fields['class_id'] = classId;
 
+      // Profile image
       if (imageFile != null) {
-        // MATCHING POSTMAN: The key must be 'image'
+        final bytes = await imageFile.readAsBytes();
+
         request.files.add(
-          await http.MultipartFile.fromPath('image', imageFile.path),
+          http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: imageFile.name,
+          ),
         );
       }
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+      debugPrint("PROFILE STATUS => ${response.statusCode}");
+      debugPrint("PROFILE BODY => ${response.body}");
+
+      final Map<String, dynamic> data;
+
+      try {
+        data = json.decode(response.body);
+      } catch (_) {
+        return {"status": false, "message": "Invalid response from server"};
+      }
+
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data["status"] != false) {
+        final user = data["user"];
+
+        if (user == null) {
+          return {
+            "status": false,
+            "message":
+                "Profile updated but user data was not returned by server",
+          };
+        }
+
         return {
           "status": true,
-          "message": data["message"] ?? "Success",
-          "student":
-              data["user"], // Based on your screenshot, the key is "user"
-        };
-      } else {
-        return {
-          "status": false,
-          "message": "Server Error: ${response.statusCode}",
+          "message": data["message"] ?? "Profile updated successfully",
+          "student": user,
         };
       }
-    } catch (e) {
+
+      return {
+        "status": false,
+        "message":
+            data["message"] ?? "Profile update failed (${response.statusCode})",
+      };
+    } catch (e, stackTrace) {
+      debugPrint("PROFILE UPDATE ERROR => $e");
+      debugPrint("PROFILE UPDATE STACK => $stackTrace");
+
       return {"status": false, "message": "Network error: $e"};
     }
   }
@@ -723,23 +757,55 @@ class StudentService {
     }
   }
 
-  static Future<List<dynamic>> fetchEnglishGrammar() async {
+  static Future<List<dynamic>> fetchEnglishMasterCategories() async {
     final token = await LocalStorageService.getToken();
 
     final response = await http.get(
-      Uri.parse("$baseUrl/api/english-master/grammar/list"),
-      headers: {"Accept": "application/json", "Authorization": "Bearer $token"},
+      Uri.parse('$baseUrl/api/english-master/list'),
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
-    print("Status Code: ${response.statusCode}");
-    print("Body: ${response.body}");
+    debugPrint('English Master status: ${response.statusCode}');
+
+    debugPrint('English Master body: ${response.body}');
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(response.body);
 
-      return data["data"] ?? [];
-    } else {
-      throw Exception("Failed to load grammar");
+      if (decoded is Map<String, dynamic>) {
+        final dynamic data = decoded['data'];
+
+        if (data is List) {
+          return data;
+        }
+      }
+
+      return [];
     }
+
+    throw Exception(
+      'Failed to load English Master categories. '
+      'Status: ${response.statusCode}',
+    );
+  }
+
+  static Future<List<dynamic>> fetchMedMasterPdfs() async {
+    final response = await DioClient.instance.get('/api/med-master/list');
+
+    debugPrint('Med Master API response: ${response.data}');
+
+    if (response.statusCode == 200) {
+      final dynamic responseData = response.data;
+
+      if (responseData is Map<String, dynamic>) {
+        final dynamic data = responseData['data'];
+
+        if (data is List) {
+          return data;
+        }
+      }
+    }
+
+    throw Exception('Failed to fetch Med Master categories.');
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:glapod/study.dart';
+import 'package:Edmaster/study.dart';
 import 'widgets.dart/gradient_button.dart';
 import 'widgets.dart/appbar_page.dart';
 

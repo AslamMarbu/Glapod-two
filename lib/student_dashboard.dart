@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:glapod/study_subject_listing.dart';
-import 'package:glapod/solved_papers_page.dart';
-import 'package:glapod/prediction_page.dart';
-import 'package:glapod/translator_page.dart';
-import 'package:glapod/english_master.dart';
-import 'package:glapod/profile.dart';
-import 'package:glapod/storage/local_storage_service.dart';
-import 'package:glapod/utils/app_colors.dart';
+import 'package:Edmaster/study_subject_listing.dart';
+import 'package:Edmaster/solved_papers_page.dart';
+import 'package:Edmaster/prediction_page.dart';
+import 'package:Edmaster/translator_page.dart';
+import 'package:Edmaster/english_master/english_master.dart';
+import 'package:Edmaster/profile.dart';
+import 'package:Edmaster/storage/local_storage_service.dart';
+import 'package:Edmaster/utils/app_colors.dart';
 import 'widgets.dart/gradient_button.dart';
 import 'widgets.dart/appbar_page.dart';
+import 'package:Edmaster/daily_quiz.dart';
+import 'package:Edmaster/gk_master/gk_master.dart';
 import 'games_zone.dart';
+import 'package:Edmaster/med_master/med_master.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -21,6 +24,7 @@ class StudentDashboardPage extends StatefulWidget {
 
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
   String userName = "User";
+  String? profileImageUrl;
   bool isLoading = true;
 
   @override
@@ -31,6 +35,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
 
   Future<void> _loadUserName() async {
     if (!mounted) return;
+
     setState(() => isLoading = true);
 
     try {
@@ -41,10 +46,19 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           userName =
               (studentData['name'] != null &&
                   studentData['name'].toString().isNotEmpty)
-              ? studentData['name']
+              ? studentData['name'].toString()
               : "User";
+
+          profileImageUrl =
+              (studentData['image'] != null &&
+                  studentData['image'].toString().isNotEmpty)
+              ? studentData['image'].toString()
+              : null;
+
           isLoading = false;
         });
+
+        debugPrint("DASHBOARD IMAGE => $profileImageUrl");
 
         if (studentData['class_id'] == null ||
             studentData['class_id'].toString().isEmpty) {
@@ -54,11 +68,16 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
           ).then((_) => _loadUserName());
         }
       } else {
-        if (mounted) setState(() => isLoading = false);
+        if (mounted) {
+          setState(() => isLoading = false);
+        }
       }
     } catch (e) {
       debugPrint("Error loading student data: $e");
-      if (mounted) setState(() => isLoading = false);
+
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -209,19 +228,18 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Modified Logo Container to replicate the reference design
+                      // Dashboard Logo
                       Container(
                         width: screenWidth > 600 ? 56 : 48,
                         height: screenWidth > 600 ? 56 : 48,
-                        padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: const Color.fromARGB(255, 255, 255, 255),
+                          color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.black12, width: 1.2),
                         ),
                         child: ClipOval(
-                          child: Transform.scale(
-                            scale: 1.20, // try values between 1.25 and 1.4
+                          child: Padding(
+                            padding: const EdgeInsets.all(5),
                             child: Image.asset(
                               'assets/images/logo.png',
                               fit: BoxFit.contain,
@@ -286,12 +304,23 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                               ),
                               child: CircleAvatar(
                                 radius: screenWidth > 600 ? 22 : 18,
-                                backgroundColor: Colors.pink.shade100,
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.black87,
-                                  size: screenWidth > 600 ? 22 : 18,
-                                ),
+                                backgroundColor: Colors.grey.shade200,
+
+                                backgroundImage:
+                                    profileImageUrl != null &&
+                                        profileImageUrl!.isNotEmpty
+                                    ? NetworkImage(profileImageUrl!)
+                                    : null,
+
+                                child:
+                                    profileImageUrl == null ||
+                                        profileImageUrl!.isEmpty
+                                    ? Icon(
+                                        Icons.person,
+                                        color: Colors.black87,
+                                        size: screenWidth > 600 ? 22 : 18,
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
@@ -410,7 +439,7 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                             },
                           ),
                           _dashboardCard(
-                            title: "Game Master",
+                            title: "Fun Master",
                             subtitle: "Fun & Learning",
                             imagePath: "assets/images/dashboard/games.png",
                             color: const Color(0xFF9B51E0),
@@ -419,6 +448,36 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => const GamesZonePage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _dashboardCard(
+                            title: "Med Master",
+                            subtitle: "Medical Learning",
+                            imagePath: "assets/images/dashboard/med_master.png",
+                            color: const Color(0xFF00ACC1), // Cyan
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const MedMasterPage(),
+                                ),
+                              );
+                            },
+                          ),
+
+                          _dashboardCard(
+                            title:
+                                "Quiz Master", //Gk master changed to Quiz master
+                            subtitle: "General Knowledge",
+                            imagePath: "assets/images/dashboard/gk_master.png",
+                            color: const Color(0xFFE91E63), // Pink
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const GKMasterPage(),
                                 ),
                               );
                             },
@@ -465,7 +524,14 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                   "assets/images/dashboard/daily_quiz.png",
                               color: Colors.blue,
                               cardWidth: quickAccessCardWidth,
-                              onTap: () {},
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const DailyQuizGamePage(),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(width: 10),
                             _miniCard(
@@ -484,14 +550,6 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                               },
                             ),
                             const SizedBox(width: 10),
-                            _miniCard(
-                              title: "GK",
-                              imagePath:
-                                  "assets/images/dashboard/daily_quiz.png",
-                              color: Colors.green,
-                              cardWidth: quickAccessCardWidth,
-                              onTap: () {},
-                            ),
                           ],
                         ),
                       ),

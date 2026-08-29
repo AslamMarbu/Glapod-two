@@ -5,7 +5,7 @@ import '../providers/question_provider.dart';
 import '../models/question_year_model.dart';
 import 'questions_year_wise_listing_page.dart';
 import 'widgets.dart/appbar_page.dart';
-import 'package:glapod/utils/app_colors.dart';
+import 'package:Edmaster/utils/app_colors.dart';
 import 'widgets.dart/empty_state_widget.dart';
 
 class QuestionsPage extends StatefulWidget {

@@ -1,33 +1,51 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+
 import '../services/student_service.dart';
 import '../utils/file_utils.dart';
 
 class EnglishMasterProvider with ChangeNotifier {
-  List<Map<String, dynamic>> _grammarList = [];
+  List<Map<String, dynamic>> _englishMasterList = [];
+
   bool _isFetchingList = true;
 
   final Map<String, bool> _loadingStatus = {};
 
-  List<Map<String, dynamic>> get grammarList => _grammarList;
+  List<Map<String, dynamic>> get englishMasterList => _englishMasterList;
+
   bool get isFetchingList => _isFetchingList;
 
   bool isLoading(String url) => _loadingStatus[url] ?? false;
 
-  Future<bool> isPdfValid(String url) async =>
-      (await FileUtils.getValidCache(url)) != null;
+  Future<bool> isPdfValid(String url) async {
+    if (url.isEmpty || url == 'null') {
+      return false;
+    }
+
+    return (await FileUtils.getValidCache(url)) != null;
+  }
 
   Future<File?> downloadFile(String url) async {
-    if (url.isEmpty || url == "null") return null;
+    if (url.isEmpty || url == 'null') {
+      return null;
+    }
 
     _loadingStatus[url] = true;
     notifyListeners();
 
     try {
-      return await FileUtils.downloadFile(url);
+      final file = await FileUtils.downloadFile(url);
+
+      if (file == null) {
+        debugPrint('English Master download failed => $url');
+      }
+
+      return file;
     } catch (e) {
-      debugPrint("Download Error : $e");
+      debugPrint('English Master download error => $e');
+
       return null;
     } finally {
       _loadingStatus[url] = false;
@@ -35,22 +53,26 @@ class EnglishMasterProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchGrammarPdfs() async {
+  Future<void> fetchEnglishMasterCategories() async {
     _isFetchingList = true;
-    _grammarList = [];
+    _englishMasterList = [];
     notifyListeners();
 
     try {
-      final List<dynamic> rawData = await StudentService.fetchEnglishGrammar();
+      final List<dynamic> rawData =
+          await StudentService.fetchEnglishMasterCategories();
 
       final String bridge = jsonEncode(rawData);
+
       final List<dynamic> cleanData = jsonDecode(bridge);
 
-      _grammarList = cleanData
-          .map((e) => Map<String, dynamic>.from(e))
+      _englishMasterList = cleanData
+          .map((category) => Map<String, dynamic>.from(category))
           .toList();
     } catch (e) {
-      debugPrint("Grammar Error : $e");
+      _englishMasterList = [];
+
+      debugPrint('English Master error => $e');
     } finally {
       _isFetchingList = false;
       notifyListeners();

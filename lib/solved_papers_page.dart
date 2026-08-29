@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart'; // 🔹 Ensure this is in your pubspec.yaml
+import 'package:shimmer/shimmer.dart';
+
 import '../providers/solved_papers_provider.dart';
 import '../utils/app_colors.dart';
 import 'widgets.dart/appbar_page.dart';
@@ -18,6 +19,7 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
   @override
   void initState() {
     super.initState();
+
     Future.microtask(
       () => context.read<SolvedPapersProvider>().fetchSolvedPapers(),
     );
@@ -29,9 +31,11 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1FAF2),
+
       appBar: const CustomAppBar(height: 70, title: "Solved Papers"),
+
       body: spProvider.isLoading
-          ? _buildShimmerLoading() // 🔹 Replaced CircularProgressIndicator
+          ? _buildShimmerLoading()
           : !spProvider.hasDataToShow
           ? const EmptyStateWidget(
               msg: "No solved papers are available at this time.",
@@ -41,9 +45,12 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
               itemCount: spProvider.papers.length,
               itemBuilder: (context, index) {
                 final subjectData = spProvider.papers[index];
+
                 final List years = subjectData['years'] ?? [];
 
-                if (years.isEmpty) return const SizedBox.shrink();
+                if (years.isEmpty) {
+                  return const SizedBox.shrink();
+                }
 
                 return _buildDynamicSubjectCard(subjectData);
               },
@@ -51,19 +58,17 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
     );
   }
 
-  // 🔹 New: Skeleton loading screen
   Widget _buildShimmerLoading() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-      itemCount: 6, // Show 6 skeleton cards
+      itemCount: 6,
       itemBuilder: (context, index) {
         return Shimmer.fromColors(
           baseColor: Colors.grey[300]!,
           highlightColor: Colors.grey[100]!,
           child: Container(
             margin: const EdgeInsets.only(bottom: 15),
-            height:
-                70, // Matches the approximate height of a collapsed ExpansionTile
+            height: 70,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
@@ -76,7 +81,9 @@ class _SolvedPapersPageState extends State<SolvedPapersPage> {
 
   Widget _buildDynamicSubjectCard(dynamic subjectData) {
     final String subjectName = subjectData['subject'] ?? "Unknown";
+
     final List<dynamic> years = subjectData['years'] ?? [];
+
     final String subjectId = subjectData['id'].toString();
 
     final formattedName = subjectName

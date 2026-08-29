@@ -156,8 +156,8 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
               color: Color(0xFF1F2937),
               letterSpacing: .1,
             ),
