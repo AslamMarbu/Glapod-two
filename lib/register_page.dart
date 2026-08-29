@@ -303,11 +303,13 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                         ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Image.asset(
-                          "assets/images/logo.png",
-                          fit: BoxFit.contain,
+                      child: ClipOval(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(3, 3, 3, 6),
+                          child: Image.asset(
+                            "assets/images/logo.png",
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     ),

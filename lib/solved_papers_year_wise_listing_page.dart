@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+
 import '../providers/solved_papers_yearwise_provider.dart';
 import 'widgets.dart/appbar_page.dart';
-import 'widgets.dart/document_card.dart'; // Ensure this is the correct path
+import 'widgets.dart/document_card.dart';
 import 'pdf_view_page.dart';
 
 class SolvedPapersYearWiseListingPage extends StatefulWidget {
@@ -28,35 +29,38 @@ class _SolvedPapersYearWiseListingPageState
   @override
   void initState() {
     super.initState();
-    // Triggers the API fetch on load
-    Future.microtask(() => context
-        .read<SolvedPaperSetProvider>()
-        .fetchSets(widget.subjectId, widget.year));
+
+    Future.microtask(
+      () => context.read<SolvedPaperSetProvider>().fetchSets(
+        widget.subjectId,
+        widget.year,
+      ),
+    );
   }
 
   Future<void> _handlePaperTap(
-      BuildContext context,
-      SolvedPaperSetProvider provider,
-      String title,
-      String url
-      ) async {
-    // Logic handles hashing, 12hr/2-day expiry, and download
+    BuildContext context,
+    SolvedPaperSetProvider provider,
+    String title,
+    String url,
+  ) async {
+    if (url.isEmpty || url == 'null') {
+      return;
+    }
+
     final file = await provider.downloadPaper(url);
 
     if (file != null && mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PdfViewerPage(
-            title: title,
-            url: file.path,
-            isLocal: true,
-          ),
+          builder: (context) =>
+              PdfViewerPage(title: title, url: file.path, isLocal: true),
         ),
       );
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Unable to open the document.")),
+        const SnackBar(content: Text('Unable to open the document.')),
       );
     }
   }
@@ -69,34 +73,50 @@ class _SolvedPapersYearWiseListingPageState
       backgroundColor: const Color(0xFFF5FFF7),
       appBar: CustomAppBar(
         height: 40,
-        title: "${widget.subjectName.toUpperCase()} - ${widget.year}",
+        title: '${widget.subjectName.toUpperCase()} - ${widget.year}',
       ),
       body: provider.isLoading
           ? _buildShimmerList()
           : provider.paperSets.isEmpty
-          ? const Center(child: Text("No solved papers available."))
+          ? const Center(
+              child: Text(
+                'No solved papers available.',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            )
           : ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-        itemCount: provider.paperSets.length,
-        itemBuilder: (context, index) {
-          final paper = provider.paperSets[index];
-          final String title = paper['title'] ?? "Solved Paper ${index + 1}";
-          final String url = (paper['file_url'] ?? "").toString();
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+              itemCount: provider.paperSets.length,
+              itemBuilder: (context, index) {
+                final paper = provider.paperSets[index];
 
-          // 🔹 Use the Global DocumentCard here
-          return DocumentCard(
-            title: title,
-            subtitle: "", // Or pass any relevant sub-info like "PDF"
-            isDownloading: provider.isDownloading(url),
+                final String title =
+                    (paper['title'] ?? 'Solved Paper ${index + 1}').toString();
 
-            // 🔹 FIX: Parameter name must match 'isDownloadedFuture'
-            // as defined in your DocumentCard class
-            isDownloadedFuture: provider.isPaperDownloaded(url),
+                final String url =
+                    (paper['file_url'] ??
+                            paper['file'] ??
+                            paper['pdf'] ??
+                            paper['url'] ??
+                            '')
+                        .toString();
 
-            onTap: () => _handlePaperTap(context, provider, title, url),
-          );
-        },
-      ),
+                if (url.isEmpty || url == 'null') {
+                  return const SizedBox.shrink();
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: DocumentCard(
+                    title: title,
+                    subtitle: '',
+                    isDownloading: provider.isDownloading(url),
+                    isDownloadedFuture: provider.isPaperDownloaded(url),
+                    onTap: () => _handlePaperTap(context, provider, title, url),
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -110,7 +130,7 @@ class _SolvedPapersYearWiseListingPageState
           highlightColor: Colors.grey.shade100,
           child: Container(
             margin: const EdgeInsets.only(bottom: 15),
-            height: 65, // Standard height for DocumentCard
+            height: 65,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(15),

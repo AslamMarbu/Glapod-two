@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:glapod/constants/api_constants.dart';
-import 'package:glapod/storage/local_storage_service.dart';
+import 'package:Edmaster/constants/api_constants.dart';
+import 'package:Edmaster/storage/local_storage_service.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   static const String baseUrl = ApiConstants.baseUrl;
@@ -218,8 +219,12 @@ class AuthService {
     }
   }
 
-  static Future<Map<String, dynamic>> logout({required String deviceId}) async {
+  static Future<Map<String, dynamic>> logout() async {
     final token = await LocalStorageService.getToken();
+
+    if (token == null || token.isEmpty) {
+      return {"status": false, "message": "Authentication token not found"};
+    }
 
     final url = Uri.parse('$baseUrl/api/student/logout');
 
@@ -227,15 +232,39 @@ class AuthService {
       final response = await http.post(
         url,
         headers: {
+          "Accept": "application/json",
           "Content-Type": "application/json",
           "Authorization": "Bearer $token",
         },
-        body: jsonEncode({"device_id": deviceId}),
       );
 
-      return jsonDecode(response.body);
+      debugPrint("LOGOUT STATUS => ${response.statusCode}");
+      debugPrint("LOGOUT BODY => ${response.body}");
+
+      Map<String, dynamic> data;
+
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {
+          "status": false,
+          "message": "Invalid server response (${response.statusCode})",
+        };
+      }
+
+      if (response.statusCode == 200) {
+        return data;
+      }
+
+      return {
+        "status": false,
+        "message": data['message'] ?? "Logout failed",
+        "statusCode": response.statusCode,
+      };
     } catch (e) {
-      return {"status": false, "message": "Network error occurred"};
+      debugPrint("LOGOUT REQUEST ERROR => $e");
+
+      return {"status": false, "message": "Unable to connect to server"};
     }
   }
 }

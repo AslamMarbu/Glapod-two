@@ -3,7 +3,6 @@ import 'otp_verification_page.dart';
 import 'services/auth_service.dart';
 import 'widgets.dart/gradient_button.dart';
 
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
 
@@ -37,15 +36,14 @@ class _MyHomePageState extends State<MyHomePage> {
       final response = await AuthService.sendOtp(phone);
 
       if (response['status'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response['message'])),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(response['message'])));
 
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                OtpVerificationPage(mobile: phone),
+            builder: (context) => OtpVerificationPage(mobile: phone),
           ),
         );
       } else {
@@ -54,9 +52,9 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Something went wrong")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
     }
 
     setState(() => _isLoading = false);

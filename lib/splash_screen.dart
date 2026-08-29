@@ -49,7 +49,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // 4. Determine Navigation based on fresh LocalStorage data
     final student = await LocalStorageService.getStudent();
+
+    debugPrint("===== SPLASH STUDENT =====");
+    debugPrint("KEY: ${student?['key']}");
+    debugPrint("CREATED: ${student?['account_created_on']}");
+    debugPrint("TRIAL TIME: ${student?['trail_time']}");
+    debugPrint("CLASS ID: ${student?['class_id']}");
+    debugPrint("==========================");
+
     final LicenseStatus status = await LocalStorageService.getLicenseStatus();
+
+    debugPrint("LICENSE STATUS: $status");
 
     if (student == null) {
       _goTo(const MyHomePage());
@@ -99,32 +109,28 @@ class _SplashScreenState extends State<SplashScreen> {
               const Spacer(),
 
               Container(
-  width: 120,
-  height: 120,
-  decoration: BoxDecoration(
-    color: Colors.white,
-    shape: BoxShape.circle,
-    boxShadow: const [
-      BoxShadow(
-        color: Colors.black26,
-        blurRadius: 20,
-        offset: Offset(0, 8),
-      ),
-    ],
-  ),
-  child: ClipOval(
-    child: OverflowBox(
-      maxWidth: 150,
-      maxHeight: 150,
-      child: Image.asset(
-        "assets/images/logo.png",
-        width: 135,
-        height: 135,
-        fit: BoxFit.contain,
-      ),
-    ),
-  ),
-),
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(.15),
+                      blurRadius: 20,
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(3, 3, 3, 6),
+                    child: Image.asset(
+                      "assets/images/logo.png",
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 24),
 

@@ -1,59 +1,153 @@
 import 'dart:io';
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 class FileUtils {
-  /// Generates a unique path based on MD5 hash of the URL
   static Future<String> getLocalPath(String url) async {
-    // Note: If you want these files to survive app closes better on some phones,
-    // consider changing getTemporaryDirectory() to getApplicationDocumentsDirectory()
     final directory = await getTemporaryDirectory();
+
     final bytes = utf8.encode(url);
     final hash = md5.convert(bytes).toString();
-    final extension = url.split('.').last.split('?').first;
+
+    String extension = 'file';
+
+    try {
+      final uri = Uri.parse(url);
+
+      if (uri.pathSegments.isNotEmpty) {
+        final fileName = uri.pathSegments.last;
+
+        if (fileName.contains('.')) {
+          extension = fileName.split('.').last;
+        }
+      }
+    } catch (_) {}
+
     return "${directory.path}/$hash.$extension";
   }
 
-  /// 🔹 Logic: Checks if file exists and is < 12 hours old
   static Future<File?> getValidCache(String url) async {
-    if (url.isEmpty || url == "null") return null;
-    final path = await getLocalPath(url);
-    final file = File(path);
+    if (url.isEmpty || url == "null") {
+      return null;
+    }
 
-    if (await file.exists()) {
-      final lastModified = await file.lastModified();
-      final difference = DateTime.now().difference(lastModified);
+    try {
+      final path = await getLocalPath(url);
+      final file = File(path);
 
-      // 🔹 CHANGED: Check if the difference is 12 hours or more
-      if (difference.inHours >= 12) {
+      if (!await file.exists()) {
+        return null;
+      }
+
+      final fileSize = await file.length();
+
+      if (fileSize <= 0) {
         await file.delete();
         return null;
       }
+
+      final lastModified = await file.lastModified();
+      final difference = DateTime.now().difference(lastModified);
+
+      if (difference.inHours >= 12) {
+        debugPrint("CACHE EXPIRED => $url");
+
+        await file.delete();
+
+        return null;
+      }
+
       return file;
+    } catch (e) {
+      debugPrint("CACHE CHECK ERROR => $e");
+      return null;
     }
-    return null;
   }
 
-  /// 🔹 Action: Downloads or retrieves from cache
   static Future<File?> downloadFile(String url) async {
+    if (url.isEmpty || url == "null") {
+      return null;
+    }
+
+    final cachedFile = await getValidCache(url);
+
+    if (cachedFile != null) {
+      debugPrint("USING CACHE => $url");
+      return cachedFile;
+    }
+
     final path = await getLocalPath(url);
 
-    // This will now use the 12-hour rule defined above
-    final cachedFile = await getValidCache(url);
-    if (cachedFile != null) return cachedFile;
+    final finalFile = File(path);
+    final tempFile = File("$path.download");
+
+    http.Client? client;
 
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final file = File(path);
-        await file.writeAsBytes(response.bodyBytes);
-        return file;
+      if (await tempFile.exists()) {
+        await tempFile.delete();
       }
+
+      client = http.Client();
+
+      final request = http.Request("GET", Uri.parse(url));
+
+      debugPrint("DOWNLOAD START => $url");
+
+      final response = await client.send(request);
+
+      debugPrint("DOWNLOAD STATUS => ${response.statusCode}");
+
+      if (response.statusCode != 200) {
+        debugPrint("DOWNLOAD FAILED => ${response.statusCode} | $url");
+
+        return null;
+      }
+
+      final sink = tempFile.openWrite();
+
+      await response.stream.pipe(sink);
+
+      if (!await tempFile.exists()) {
+        debugPrint("DOWNLOAD FILE MISSING => $url");
+        return null;
+      }
+
+      final downloadedSize = await tempFile.length();
+
+      if (downloadedSize <= 0) {
+        await tempFile.delete();
+
+        debugPrint("DOWNLOAD EMPTY => $url");
+
+        return null;
+      }
+
+      if (await finalFile.exists()) {
+        await finalFile.delete();
+      }
+
+      await tempFile.rename(path);
+
+      debugPrint("DOWNLOAD COMPLETE => $url | $downloadedSize bytes");
+
+      return File(path);
     } catch (e) {
-      print("Download error: $e");
+      debugPrint("DOWNLOAD ERROR => $e | $url");
+
+      try {
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+
+      return null;
+    } finally {
+      client?.close();
     }
-    return null;
   }
 }

@@ -9,7 +9,7 @@ import 'student_dashboard.dart.';
 import 'activate_continue_page.dart';
 import 'profile.dart';
 import 'forgot_password_page.dart';
-import 'package:glapod/utils/device_utils.dart';
+import 'package:Edmaster/utils/device_utils.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -94,8 +94,21 @@ class _MyHomePageState extends State<MyHomePage> {
           studentData: student,
         );
 
+        final savedStudent = await LocalStorageService.getStudent();
+
+        debugPrint("========== LOGIN DEBUG ==========");
+        debugPrint("API STUDENT => $student");
+        debugPrint("SAVED STUDENT => $savedStudent");
+        debugPrint("KEY => ${savedStudent?['key']}");
+        debugPrint("TRAIL TIME => ${savedStudent?['trail_time']}");
+        debugPrint("CREATED ON => ${savedStudent?['account_created_on']}");
+        debugPrint("CLASS ID => ${savedStudent?['class_id']}");
+
         final LicenseStatus status =
             await LocalStorageService.getLicenseStatus();
+
+        debugPrint("LICENSE STATUS => $status");
+        debugPrint("=================================");
 
         if (!mounted) return;
 
@@ -174,11 +187,13 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ],
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Image.asset(
-                          "assets/images/logo.png",
-                          fit: BoxFit.contain,
+                      child: ClipOval(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(3, 3, 3, 6),
+                          child: Image.asset(
+                            "assets/images/logo.png",
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     ),

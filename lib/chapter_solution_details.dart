@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:glapod/utils/share_helper.dart';
+import 'package:Edmaster/utils/share_helper.dart';
 import 'widgets.dart/appbar_page.dart';
-import 'package:glapod/utils/app_colors.dart';
+import 'package:Edmaster/utils/app_colors.dart';
 
 class ChapterSolutionDetailsPage extends StatefulWidget {
   final String exerciseTitle;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:glapod/quiz_game.dart';
-import 'package:glapod/word_space_game.dart';
+import 'package:Edmaster/spelling_quiz.dart';
+import 'package:Edmaster/word_space_game.dart';
 import 'widgets.dart/appbar_page.dart';
 
 class GamesZonePage extends StatefulWidget {
@@ -84,13 +84,92 @@ class _GamesZonePageState extends State<GamesZonePage> {
     super.dispose();
   }
 
+  void _showLevelSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                "Choose Difficulty",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                "Select your spelling level",
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+
+              const SizedBox(height: 25),
+
+              _levelTile(
+                context,
+                title: "Beginner",
+                subtitle: "Words with 1 - 5 letters",
+                color: Colors.green,
+                icon: Icons.sentiment_satisfied_alt,
+                level: "beginner",
+              ),
+
+              const SizedBox(height: 15),
+
+              _levelTile(
+                context,
+                title: "Intermediate",
+                subtitle: "Words with 6 - 10 letters",
+                color: Colors.orange,
+                icon: Icons.school,
+                level: "intermediate",
+              ),
+
+              const SizedBox(height: 15),
+
+              _levelTile(
+                context,
+                title: "Advanced",
+                subtitle: "Words with 11+ letters",
+                color: Colors.red,
+                icon: Icons.workspace_premium,
+                level: "advanced",
+              ),
+
+              const SizedBox(height: 25),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: CustomAppBar(
         height: 70,
-        title: "Games Zone",
+        title: "Fun Master",
 
         trailingWidget: Row(
           mainAxisSize: MainAxisSize.min,
@@ -148,49 +227,6 @@ class _GamesZonePageState extends State<GamesZonePage> {
             ),
           ),
 
-          Positioned(
-            top: -120,
-            right: -80,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.25),
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 120,
-            left: 80,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color.fromARGB(
-                  255,
-                  255,
-                  255,
-                  255,
-                ).withOpacity(0.25),
-              ),
-            ),
-          ),
-
-          Positioned(
-            bottom: -100,
-            left: -60,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.25),
-              ),
-            ),
-          ),
           SafeArea(
             child: Column(
               children: [
@@ -257,10 +293,7 @@ class _GamesZonePageState extends State<GamesZonePage> {
         child: InkWell(
           onTap: () {
             if (game['title'] == "Spelling Quiz") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const QuizGamePage()),
-              );
+              _showLevelSelector(context);
             } else if (game['title'] == "Word Space") {
               Navigator.push(
                 context,
@@ -370,6 +403,67 @@ class _GamesZonePageState extends State<GamesZonePage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _levelTile(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+    required String level,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        Navigator.pop(context);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => QuizGamePage(level: level)),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: color,
+              child: Icon(icon, color: Colors.white),
+            ),
+
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(subtitle),
+                ],
+              ),
+            ),
+
+            Icon(Icons.arrow_forward_ios, color: color),
+          ],
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart'; // Ensure shimmer is in pubspec.yaml
 import '../providers/video_provider.dart';
 import 'widgets.dart/appbar_page.dart';
+import 'widgets.dart/app_refresh_wrapper.dart';
 
 // --- SHIMMER PLACEHOLDER WIDGET ---
 class ShimmerPlaceholder extends StatelessWidget {
@@ -133,7 +134,12 @@ class _VideoListingPageState extends State<VideoListingPage> {
                   isDashboard: false,
                 ),
           body: vp.isPageLoading
-              ? _buildFullPageShimmer() // 🔹 Full page shimmer
+              ? AppRefreshWrapper(
+                  onRefresh: () async {
+                    await vp.initialFetch(widget.chapterId);
+                  },
+                  child: _buildFullPageShimmer(),
+                )
               : Column(
                   children: [
                     if (_isVideoSelected && _controller != null)
@@ -146,7 +152,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
                               width: double.infinity,
                               color: Colors.white,
                               child: Text(
-                                _activeVideoTitle!,
+                                _activeVideoTitle ?? "",
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -154,15 +160,24 @@ class _VideoListingPageState extends State<VideoListingPage> {
                             ),
                         ],
                       ),
+
                     if (!isFull)
                       Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLanguageHeader(vp),
-                              _buildVideoListBody(vp),
-                            ],
+                        child: AppRefreshWrapper(
+                          onRefresh: () async {
+                            await vp.initialFetch(widget.chapterId);
+                          },
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLanguageHeader(vp),
+                                _buildVideoListBody(vp),
+
+                                const SizedBox(height: 30),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -176,6 +191,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
   // 🔹 Shimmer for the entire page (Header + Video List)
   Widget _buildFullPageShimmer() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -215,7 +231,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: 5,
       itemBuilder: (context, index) {
         return Container(
@@ -246,7 +262,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
         children: [
           const Text(
             "Video Language",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -300,7 +316,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
           const SizedBox(height: 20),
           Text(
             "Videos (${vp.selectedLanguageName})",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -371,7 +387,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

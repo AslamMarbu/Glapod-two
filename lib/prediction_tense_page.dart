@@ -23,11 +23,19 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   String _presentHint = "";
   String _v3Hint = "";
   bool _isInitialized = false;
+  bool _showAnswer = false; // <-- Tracks toggle state for viewing answer
+
+  bool _isRestartingQuestions = false;
 
   final Color brandorange = const Color.fromARGB(255, 249, 116, 22);
   final Color deepOrangeText = const Color(0xfff16704);
   final Color lightCardPurple = const Color(0xFFF3F5FC);
   final Color dividerLineColor = const Color(0xFFD6C8F4);
+
+  bool get _isIntermediateOrAdvanced {
+    final lvl = widget.level.trim().toLowerCase();
+    return lvl == "intermediate" || lvl == "advanced";
+  }
 
   @override
   void initState() {
@@ -50,6 +58,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   void _resetLocalState() {
     setState(() {
       _isInitialized = false;
+      _showAnswer = false; // <-- Reset toggle for the next question
       _targetWord = "";
       _v3Hint = "";
       for (var c in _controllers) c.dispose();
@@ -60,20 +69,26 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   }
 
   void _setupGame(Map<String, dynamic> question) {
+    _isRestartingQuestions = false;
+
     final newTarget = (question['past'] ?? "").toString().toUpperCase();
 
     setState(() {
       _presentHint = (question['present'] ?? "").toString();
+
       _targetWord = newTarget;
+
       _v3Hint = (question['future'] ?? question['past_participle'] ?? "---")
           .toString();
 
       for (var c in _controllers) c.dispose();
       for (var f in _focusNodes) f.dispose();
+
       _controllers.clear();
       _focusNodes.clear();
 
       String cleanTarget = _targetWord.replaceAll(" ", "");
+
       for (int i = 0; i < cleanTarget.length; i++) {
         _controllers.add(TextEditingController());
         _focusNodes.add(FocusNode());
@@ -81,13 +96,17 @@ class _PredictionTensePageState extends State<PredictionTensePage>
 
       if (widget.level.trim().toLowerCase() == "intermediate") {
         int hintCount = (cleanTarget.length / 3).ceil();
+
         List<int> indices = List.generate(cleanTarget.length, (i) => i)
           ..shuffle();
+
         for (int i = 0; i < hintCount; i++) {
           int targetIdx = indices[i];
+
           _controllers[targetIdx].text = cleanTarget[targetIdx];
         }
       }
+
       _isInitialized = true;
     });
 
@@ -111,7 +130,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
     if (enteredWord != _targetWord.replaceAll(" ", "")) {
       _triggerShake();
-      _clearInputs(); // <-- Automatically clears fields and hides the keyboard on error
+      _clearInputs();
       return;
     }
     _fetchNewQuestion();
@@ -125,19 +144,11 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   }
 
   void _clearInputs() {
-    // 1. Dismiss the keyboard
     FocusScope.of(context).unfocus();
-
-    // 2. Clear all text controllers
     for (var controller in _controllers) {
       controller.clear();
     }
-
     setState(() {});
-
-    // Note: If you want the keyboard to STAY down, do NOT call _focusFirstEmpty() here,
-    // because requesting focus on a text field will bring the keyboard right back up.
-    // _focusFirstEmpty();
   }
 
   @override
@@ -152,18 +163,16 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   Widget build(BuildContext context) {
     final tense = context.watch<PredictionTenseProvider>();
 
-   return Scaffold(
-  resizeToAvoidBottomInset: true,
-  backgroundColor: const Color(0xFFF6F8FE),
-
-  appBar: const CustomAppBar(
-    height: 50,
-    title: "Past Tense",
-    isDashboard: false,
-  ),
-
-  body: tense.isLoading ? _buildShimmerLoading() : _buildBody(tense),
-);
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      backgroundColor: const Color(0xFFF6F8FE),
+      appBar: const CustomAppBar(
+        height: 50,
+        title: "Past Tense",
+        isDashboard: false,
+      ),
+      body: tense.isLoading ? _buildShimmerLoading() : _buildBody(tense),
+    );
   }
 
   Widget _buildShimmerLoading() {
@@ -190,111 +199,124 @@ class _PredictionTensePageState extends State<PredictionTensePage>
   }
 
   Widget _buildBody(PredictionTenseProvider tense) {
-    if (tense.isCompleted) {
-      return _buildStatusView(
-        title: "Level Mastered!",
-        message: "Fantastic! Level completed.",
-        icon: Icons.auto_awesome,
-        iconColor: Colors.amber,
-        buttonText: "Play Again",
-        onBtnPressed: () => _fetchNewQuestion(status: "new"),
-      );
-    }
-
     final response = tense.currentResponse;
-    if (response == null || response['status'].toString() == "false") {
-      return _buildStatusView(
-        title: "Sorry!",
-        message: response?['message'] ?? "No more questions.",
-        icon: Icons.info_outline,
-        iconColor: Colors.blue,
-        buttonText: "Go Back",
-        onBtnPressed: () => Navigator.pop(context),
-      );
+
+    // Never show completed/no-more-questions screen.
+    // Automatically restart from the beginning.
+    if (tense.isCompleted ||
+        response == null ||
+        response['status'].toString() == "false") {
+      if (!_isRestartingQuestions) {
+        _isRestartingQuestions = true;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          _fetchNewQuestion(status: "new");
+        });
+      }
+
+      return _buildShimmerLoading();
     }
 
     if (!_isInitialized && response['question'] != null) {
       Future.microtask(() => _setupGame(response['question']));
+
       return _buildShimmerLoading();
     }
 
     return Column(
-      children: [      // Main Content Area
+      children: [
         Expanded(
           child: SingleChildScrollView(
-            child: SingleChildScrollView(
-              // Extra bottom padding ensures scrolling space above the keyboard
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 30 : 10,
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 18,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        _buildSectionHeader("Base Form [V1]"),
-                        const SizedBox(height: 14),
-                        _buildV1Card(),
-
-                        if (widget.level.trim().toLowerCase() ==
-                            "beginner") ...[
-                          const SizedBox(height: 20),
-                          Text(
-                            _targetWord.toUpperCase(),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 8,
-                              color: Color(0xFF43A047),
-                            ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 18),
-                        _buildSectionHeader("Simple Past [V2]"),
-                        const SizedBox(height: 14),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.center,
-                            child: _buildInputGrid(),
-                          ),
-                        ),
-                      ],
-                    ),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 30 : 10,
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(height: 20),
-                  _buildV3RowCard(),
-
-                  // By inserting the button into the scroll view, it flows naturally
-                  // and stops overlapping your V2 boxes.
-                  const SizedBox(height: 30),
-                  _buildBottomGradientAction(),
-                ],
-              ),
+                  child: Column(
+                    children: [
+                      _buildSectionHeader("Base Form [V1]"),
+                      const SizedBox(height: 14),
+                      _buildV1Card(),
+                      if (widget.level.trim().toLowerCase() == "beginner") ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          _targetWord.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 8,
+                            color: Color(0xFF43A047),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      _buildSectionHeader("Simple Past [V2]"),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.center,
+                          child: _buildInputGrid(),
+                        ),
+                      ),
+                      // View / Hide Answer Toggle Button for Intermediate & Advanced
+                      if (_isIntermediateOrAdvanced) ...[
+                        const SizedBox(height: 20),
+                        _buildViewAnswerButton(),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildV3RowCard(),
+                const SizedBox(height: 30),
+                _buildBottomGradientAction(),
+              ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildViewAnswerButton() {
+    return IconButton(
+      onPressed: () {
+        setState(() {
+          _showAnswer = !_showAnswer;
+        });
+      },
+      style: IconButton.styleFrom(
+        foregroundColor: brandorange,
+        side: BorderSide(color: brandorange.withOpacity(0.4), width: 1.5),
+        padding: const EdgeInsets.all(12),
+        shape: const CircleBorder(), // Keeps it clean and circular
+      ),
+      icon: Icon(
+        _showAnswer ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size:
+            22, // Slightly increased size for a better touch target since text is removed
+      ),
     );
   }
 
@@ -347,7 +369,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
           fontSize: 26,
           fontWeight: FontWeight.w900,
           color: deepOrangeText,
-          letterSpacing: 10, // Natural internal system letterspacing
+          letterSpacing: 10,
         ),
       ),
     );
@@ -410,48 +432,6 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     );
   }
 
-  Widget _buildFeedbackRowCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF3FF),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFDBE4FF), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: const Color(0xFFDCE4FF),
-            child: Icon(Icons.chat_bubble, color: brandorange, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "FEEDBACK",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: brandorange,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  "Enter here...",
-                  style: TextStyle(fontSize: 15, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildInputGrid() {
     return AnimatedBuilder(
       animation: _shakeController,
@@ -471,10 +451,8 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                   .replaceAll(" ", "")
                   .length;
               return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 3,
-                ), // Reduced horizontal gaps
-                child: _buildModernInputBox(controllerIdx),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: _buildModernInputBox(controllerIdx, _targetWord[i]),
               );
             }),
           ),
@@ -483,7 +461,7 @@ class _PredictionTensePageState extends State<PredictionTensePage>
     );
   }
 
-  Widget _buildModernInputBox(int index) {
+  Widget _buildModernInputBox(int index, String correctLetter) {
     bool hasFocus = _focusNodes[index].hasFocus;
 
     String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
@@ -499,19 +477,24 @@ class _PredictionTensePageState extends State<PredictionTensePage>
       borderColor = hasFocus ? brandorange : const Color(0xFFD6DCED);
     }
 
-    // Wrap with KeyboardListener to detect Backspace on empty boxes
+    // Determine what text to render inside the stack
+    String displayedText = _controllers[index].text.toUpperCase();
+    Color textColor = deepOrangeText;
+
+    // If the controller text is empty and toggle is on, show the faded system answer hint
+    if (displayedText.isEmpty && _showAnswer && _isIntermediateOrAdvanced) {
+      displayedText = correctLetter.toUpperCase();
+      textColor = Colors.grey.withOpacity(0.4); // Faded color look
+    }
+
     return KeyboardListener(
-      focusNode: FocusNode(
-        skipTraversal: true,
-      ), // Internal node just for listening
+      focusNode: FocusNode(skipTraversal: true),
       onKeyEvent: (KeyEvent event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.backspace) {
-            // If current box is empty and backspace is pressed, go to previous box
             if (_controllers[index].text.isEmpty && index > 0) {
               _focusNodes[index - 1].requestFocus();
-              _controllers[index - 1]
-                  .clear(); // Optional: clears previous box too
+              _controllers[index - 1].clear();
               setState(() {});
             }
           }
@@ -532,11 +515,11 @@ class _PredictionTensePageState extends State<PredictionTensePage>
           alignment: Alignment.center,
           children: [
             Text(
-              _controllers[index].text.toUpperCase(),
+              displayedText,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: deepOrangeText,
+                color: textColor,
               ),
             ),
             TextField(
@@ -563,7 +546,6 @@ class _PredictionTensePageState extends State<PredictionTensePage>
                     _focusNodes[index].unfocus();
                   }
                 } else {
-                  // Regular backspace when box HAS text handles moving back here
                   if (index > 0) {
                     _focusNodes[index - 1].requestFocus();
                   }

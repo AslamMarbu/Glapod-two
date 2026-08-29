@@ -53,14 +53,28 @@ class VideoProvider with ChangeNotifier {
     if (_selectedLanguageId == null) return;
 
     _isVideosLoading = true;
+    _videos = [];
     notifyListeners();
 
     try {
-      _videos = await StudentService.fetchStudyVideos(
+      debugPrint("========== VIDEO FETCH ==========");
+      debugPrint("Chapter ID: $chapterId");
+      debugPrint("Language ID: $_selectedLanguageId");
+      debugPrint("Language: $_selectedLanguageName");
+
+      final result = await StudentService.fetchStudyVideos(
         chapterId,
         _selectedLanguageId,
       );
-    } catch (e) {
+
+      debugPrint("Videos returned: ${result.length}");
+      debugPrint("Video data: $result");
+
+      _videos = result;
+    } catch (e, stackTrace) {
+      debugPrint("VIDEO FETCH ERROR: $e");
+      debugPrint("$stackTrace");
+
       _videos = [];
     } finally {
       _isVideosLoading = false;
@@ -68,10 +82,27 @@ class VideoProvider with ChangeNotifier {
     }
   }
 
-  void selectLanguage(dynamic lang, dynamic chapterId) {
-    _selectedLanguageId = toSafeInt(lang['id']);
-    _selectedLanguageName = lang['language'] ?? "";
+  Future<void> selectLanguage(dynamic languageId, dynamic chapterId) async {
+    final int? id = toSafeInt(languageId);
+
+    if (id == null) return;
+
+    _selectedLanguageId = id;
+
+    // Find selected language name from languages list
+    final selectedLanguage = _languages.firstWhere(
+      (lang) => toSafeInt(lang['id']) == id,
+      orElse: () => null,
+    );
+
+    if (selectedLanguage != null) {
+      _selectedLanguageName = selectedLanguage['language']?.toString() ?? "";
+    } else {
+      _selectedLanguageName = "";
+    }
+
     notifyListeners();
-    loadVideos(chapterId);
+
+    await loadVideos(chapterId);
   }
 }

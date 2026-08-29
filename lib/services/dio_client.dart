@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:Edmaster/constants/api_constants.dart';
+
 import '../storage/local_storage_service.dart';
 import '../utils/api_cache_service.dart';
-import 'package:glapod/constants/api_constants.dart';
 
 class DioClient {
   static Dio? _dio;
@@ -27,56 +28,95 @@ class DioClient {
         InterceptorsWrapper(
           onRequest: (options, handler) async {
             final token = await LocalStorageService.getToken();
+
             if (token != null && token.isNotEmpty) {
               options.headers['Authorization'] = 'Bearer $token';
             }
-            return handler.next(options); // Continue request
+
+            return handler.next(options);
           },
         ),
       );
 
-      // 2. CACHE INTERCEPTOR (The 12-hour logic)
+      // 2. CACHE INTERCEPTOR
       _dio!.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) async {
-            if (options.method == "GET" &&
-                !options.path.contains('/api/study/get-subjects')) {
-              // Use the path (e.g., /api/subjects) as the cache key
-              final cachedData = await ApiCacheService.getCachedData(
-                options.path,
-              );
+            final bool shouldSkipCache = _shouldSkipCache(options);
+
+            if (options.method.toUpperCase() == 'GET' && !shouldSkipCache) {
+              final String cacheKey = options.uri.toString();
+
+              final cachedData = await ApiCacheService.getCachedData(cacheKey);
+
               if (cachedData != null) {
-                // If cache exists, return it immediately and STOP the network call
                 return handler.resolve(
                   Response(
                     requestOptions: options,
                     data: cachedData,
                     statusCode: 200,
+                    statusMessage: 'Loaded from cache',
                   ),
                 );
               }
             }
+
             return handler.next(options);
           },
+
           onResponse: (response, handler) async {
-            // Save to cache only on successful GET requests
-            if (response.requestOptions.method == "GET" &&
+            final RequestOptions options = response.requestOptions;
+
+            final bool shouldSkipCache = _shouldSkipCache(options);
+
+            if (options.method.toUpperCase() == 'GET' &&
+                !shouldSkipCache &&
                 response.statusCode == 200) {
-              await ApiCacheService.cacheData(
-                response.requestOptions.path,
-                response.data,
-              );
+              final String cacheKey = options.uri.toString();
+
+              await ApiCacheService.cacheData(cacheKey, response.data);
             }
+
             return handler.next(response);
+          },
+
+          onError: (DioException error, handler) {
+            return handler.next(error);
           },
         ),
       );
 
-      // 3. LOGGING (Crucial for debugging on your phone)
+      // 3. LOGGING
       _dio!.interceptors.add(
-        LogInterceptor(requestBody: true, responseBody: true),
+        LogInterceptor(
+          request: true,
+          requestHeader: true,
+          requestBody: true,
+          responseHeader: false,
+          responseBody: true,
+          error: true,
+        ),
       );
     }
+
     return _dio!;
+  }
+
+  /// APIs listed here always fetch fresh data from server.
+  static bool _shouldSkipCache(RequestOptions options) {
+    final String path = options.path.toLowerCase();
+
+    return path.contains('/api/study/get-subjects') ||
+        path.contains('/api/game-zone/spelling-quiz') ||
+        path.contains('/api/daily-quiz') ||
+        path.contains('/api/gk-master') ||
+        path.contains('/api/english-master/list') ||
+        path.contains('/api/med-master/list');
+  }
+
+  /// Recreate the Dio instance when required.
+  static void reset() {
+    _dio?.close(force: true);
+    _dio = null;
   }
 }

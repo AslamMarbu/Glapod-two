@@ -6,7 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../profile.dart';
 import '../notification_page.dart';
 import '../services/student_service.dart';
-import 'package:glapod/utils/string_utilities.dart';
+import 'package:Edmaster/utils/string_utilities.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final double height;
@@ -102,10 +102,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-colors: [
-  Color(0xFFFF9800), // #ff9800
-  Color(0xFFFFC107), // #ffc107
-],
+            colors: [
+              Color(0xFFFF9800), // #ff9800
+              Color(0xFFFFC107), // #ffc107
+            ],
           ),
         ),
         child: SafeArea(
@@ -218,12 +218,18 @@ colors: [
   }
 
   Widget _buildStandardTitle() {
+    final bool hasSubtitle =
+        widget.isSubtitle &&
+        widget.subtitleText != null &&
+        widget.subtitleText!.trim().isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          StringUtils.toSentenceCase(widget.title ?? ""),
+          widget.title ?? "",
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -234,11 +240,15 @@ colors: [
           ),
         ),
 
-        if (widget.isSubtitle)
+        if (hasSubtitle) ...[
+          const SizedBox(height: 2),
           Text(
-            widget.subtitleText ?? "",
+            widget.subtitleText!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
           ),
+        ],
       ],
     );
   }

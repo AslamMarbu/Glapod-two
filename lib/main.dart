@@ -26,6 +26,10 @@ import 'providers/textbook_provider.dart';
 import 'providers/questions_year_wise_lprovider.dart';
 import 'providers/solved_papers_yearwise_provider.dart';
 import 'providers/english_master_provider.dart';
+import 'providers/spelling_quiz_provider.dart';
+import 'providers/daily_quiz_provider.dart';
+import 'providers/gk_master_provider.dart';
+import 'providers/med_master_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +64,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => GkProvider()),
         ChangeNotifierProvider(create: (_) => StudyProvider()),
         //   ChangeNotifierProvider(create: (_) => ChapterProvider()), // Add this
         ChangeNotifierProvider(create: (_) => NotesProvider()),
@@ -77,6 +82,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => TextbookProvider()),
         ChangeNotifierProvider(create: (_) => YearwiseQPaperProvider()),
         ChangeNotifierProvider(create: (_) => EnglishMasterProvider()),
+        ChangeNotifierProvider(create: (_) => SpellingQuizProvider()),
+        ChangeNotifierProvider(create: (_) => DailyQuizProvider()),
+        ChangeNotifierProvider(create: (_) => MedMasterProvider()),
       ],
       child: MyApp(initialPage: startPage, isLoggedIn: isLoggedIn),
     ),
@@ -92,7 +100,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'Glapod',
       theme: ThemeData(
         fontFamily: 'Montserrat',

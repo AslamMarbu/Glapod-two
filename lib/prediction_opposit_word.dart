@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+
 import '../providers/prediction_opposite_provider.dart';
 import 'widgets.dart/appbar_page.dart';
 
 class PredictionOppositePage extends StatefulWidget {
   final String level;
+
   const PredictionOppositePage({super.key, required this.level});
 
   @override
@@ -16,25 +18,43 @@ class PredictionOppositePage extends StatefulWidget {
 class _PredictionOppositePageState extends State<PredictionOppositePage>
     with SingleTickerProviderStateMixin {
   late AnimationController _shakeController;
+
   final List<TextEditingController> _controllers = [];
   final List<FocusNode> _focusNodes = [];
 
   String _targetWord = "";
   String _wordHint = "";
+
   bool _isInitialized = false;
+  bool _showAnswer = false;
+
+  bool _isRestartingQuestions = false;
+
+  bool get _isBeginner => widget.level.toLowerCase() == "beginner";
+
+  bool get _canViewAnswer {
+    final level = widget.level.toLowerCase();
+
+    return level == "intermediate" || level == "advanced";
+  }
 
   @override
   void initState() {
     super.initState();
+
     _shakeController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 450),
       vsync: this,
     );
-    Future.microtask(() => _fetchNewQuestion());
+
+    Future.microtask(() {
+      _fetchNewQuestion();
+    });
   }
 
   void _fetchNewQuestion({String? status}) {
     _resetLocalState();
+
     context.read<PredictionOppositeProvider>().loadQuestion(
       widget.level,
       status: status,
@@ -42,104 +62,179 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
   }
 
   void _resetLocalState() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+
+    for (final focus in _focusNodes) {
+      focus.dispose();
+    }
+
+    _controllers.clear();
+    _focusNodes.clear();
+
     setState(() {
       _isInitialized = false;
+      _showAnswer = false;
       _targetWord = "";
-      for (var c in _controllers) c.dispose();
-      for (var f in _focusNodes) f.dispose();
-      _controllers.clear();
-      _focusNodes.clear();
+      _wordHint = "";
     });
   }
 
   void _setupGame(Map<String, dynamic> question) {
+    _isRestartingQuestions = false;
+
     if (_isInitialized) return;
 
     _wordHint = (question['word'] ?? "").toString();
+
     _targetWord = (question['opposite_word'] ?? "").toString().toUpperCase();
 
-    if (_targetWord.isNotEmpty) {
-      String cleanTarget = _targetWord.replaceAll(" ", "");
-      for (int i = 0; i < cleanTarget.length; i++) {
-        _controllers.add(TextEditingController());
-        FocusNode node = FocusNode();
-
-        node.addListener(() {
-          if (node.hasFocus) {
-            if (_controllers[i].text.isNotEmpty) {
-              _controllers[i].clear();
-            }
-            setState(() {});
-          }
-        });
-        _focusNodes.add(node);
-      }
-
-      if (widget.level.toLowerCase() == "intermediate") {
-        int hintCount = (cleanTarget.length / 3).ceil();
-        List<int> indices = List.generate(cleanTarget.length, (i) => i)
-          ..shuffle();
-        for (int i = 0; i < hintCount; i++) {
-          int targetIdx = indices[i];
-          _controllers[targetIdx].text = cleanTarget[targetIdx];
-        }
-      }
-      _isInitialized = true;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 400), () {
-          if (mounted) _focusFirstEmpty();
-        });
-      });
+    if (_targetWord.isEmpty) {
+      return;
     }
+
+    final String cleanTarget = _targetWord.replaceAll(" ", "");
+
+    for (int i = 0; i < cleanTarget.length; i++) {
+      _controllers.add(TextEditingController());
+
+      final FocusNode node = FocusNode();
+
+      node.addListener(() {
+        if (!mounted) return;
+        setState(() {});
+      });
+
+      _focusNodes.add(node);
+    }
+
+    /// Intermediate:
+    /// prefill around 1/3 of the letters.
+    if (widget.level.toLowerCase() == "intermediate") {
+      final int hintCount = (cleanTarget.length / 3).ceil();
+
+      final List<int> indices = List.generate(
+        cleanTarget.length,
+        (index) => index,
+      )..shuffle();
+
+      for (int i = 0; i < hintCount; i++) {
+        final int targetIndex = indices[i];
+
+        _controllers[targetIndex].text = cleanTarget[targetIndex];
+      }
+    }
+
+    _isInitialized = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) {
+          _focusFirstEmpty();
+        }
+      });
+    });
   }
 
   void _focusFirstEmpty() {
     for (int i = 0; i < _controllers.length; i++) {
       if (_controllers[i].text.isEmpty) {
         _focusNodes[i].requestFocus();
+
         SystemChannels.textInput.invokeMethod('TextInput.show');
+
         break;
       }
     }
   }
 
-  // 🔹 Hides keyboard and clears out entry on error mismatch
+  bool _isAnswerCorrect() {
+    final String enteredWord = _controllers
+        .map((controller) => controller.text.trim().toUpperCase())
+        .join("");
+
+    final String correctWord = _targetWord
+        .replaceAll(" ", "")
+        .trim()
+        .toUpperCase();
+
+    return correctWord.isNotEmpty && enteredWord == correctWord;
+  }
+
+  void _hideKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+  }
+
+  void _focusNextEmpty(int currentIndex) {
+    for (int i = currentIndex + 1; i < _controllers.length; i++) {
+      if (_controllers[i].text.isEmpty) {
+        _focusNodes[i].requestFocus();
+        return;
+      }
+    }
+
+    // No empty box remains.
+    _hideKeyboard();
+  }
+
   void _clearInputsOnError() {
     FocusManager.instance.primaryFocus?.unfocus();
 
-    for (var controller in _controllers) {
-      controller.clear();
+    final String cleanTarget = _targetWord.replaceAll(" ", "");
+
+    for (int i = 0; i < _controllers.length; i++) {
+      if (widget.level.toLowerCase() == "intermediate" &&
+          _controllers[i].text.isNotEmpty &&
+          _controllers[i].text.toUpperCase() == cleanTarget[i]) {
+        continue;
+      }
+
+      _controllers[i].clear();
     }
+
     setState(() {});
   }
 
   void _handleNext() {
-    String enteredWord = _controllers.map((c) => c.text.toUpperCase()).join("");
-    String cleanTarget = _targetWord.replaceAll(" ", "");
+    final String enteredWord = _controllers
+        .map((controller) => controller.text.toUpperCase())
+        .join("");
+
+    final String cleanTarget = _targetWord.replaceAll(" ", "");
 
     if (enteredWord != cleanTarget) {
       _triggerShake();
-      _clearInputsOnError(); //  Hides keyboard and resets grid input fields
+      _clearInputsOnError();
       return;
     }
 
-    FocusScope.of(context).unfocus();
+    _hideKeyboard();
+
     _fetchNewQuestion();
   }
 
   void _triggerShake() {
     if (!_shakeController.isAnimating) {
-      _shakeController.forward(from: 0.0);
-      HapticFeedback.vibrate();
+      _shakeController.forward(from: 0);
+
+      HapticFeedback.mediumImpact();
     }
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
-    for (var c in _controllers) c.dispose();
-    for (var f in _focusNodes) f.dispose();
+
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+
+    for (final focus in _focusNodes) {
+      focus.dispose();
+    }
+
     super.dispose();
   }
 
@@ -148,123 +243,245 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     final opp = context.watch<PredictionOppositeProvider>();
 
     return Scaffold(
-  backgroundColor: const Color(0xFFF5F5FA),
-  appBar: const CustomAppBar(
-    height: 70,
-    title: "Antonyms",
-    isDashboard: false,
-  ),
-  body: opp.isLoading ? _buildShimmerLoading() : _buildBody(opp),
-);
+      resizeToAvoidBottomInset: true,
+      backgroundColor: const Color(0xFFF7F8FC),
+
+      appBar: const CustomAppBar(
+        height: 70,
+        title: "Antonyms",
+        isDashboard: false,
+      ),
+
+      body: opp.isLoading ? _buildShimmerLoading() : _buildBody(opp),
+    );
   }
 
   Widget _buildBody(PredictionOppositeProvider opp) {
-    if (opp.isCompleted) {
-      return _buildStatusView(
-        title: "Level Completed!",
-        message:
-            "Outstanding! You have found all the opposite words in this level.",
-        icon: Icons.emoji_events_rounded,
-        iconColor: Colors.orangeAccent,
-        buttonText: "Play Again",
-        onBtnPressed: () => _fetchNewQuestion(status: "new"),
-      );
-    }
-
     final response = opp.currentResponse;
-    if (response == null || response['status'].toString() == "false") {
-      return _buildStatusView(
-        title: "No More Questions",
-        message:
-            response?['message'] ??
-            "You've caught up with all questions for now!",
-        icon: Icons.check_circle_outline_rounded,
-        iconColor: Colors.green,
-        buttonText: "Go Back",
-        onBtnPressed: () => Navigator.pop(context),
-      );
+
+    // When every question is completed,
+    // automatically start the level again.
+    if (opp.isCompleted ||
+        response == null ||
+        response['status'].toString() == "false") {
+      if (!_isRestartingQuestions) {
+        _isRestartingQuestions = true;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          _fetchNewQuestion(status: "new");
+        });
+      }
+
+      return _buildShimmerLoading();
     }
 
-    _setupGame(response['question']);
-    if (_targetWord.isEmpty) return const SizedBox.shrink();
+    final dynamic rawQuestion = response['question'];
 
-    bool isBeginner = widget.level.toLowerCase() == "beginner";
+    if (rawQuestion is Map<String, dynamic>) {
+      _setupGame(rawQuestion);
+    } else if (rawQuestion is Map) {
+      _setupGame(Map<String, dynamic>.from(rawQuestion));
+    }
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 36,
-                    horizontal: 16,
-                  ),
-                  child: Column(
-                    children: [
-                      _buildHintCard(),
+    if (_targetWord.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
-                      if (isBeginner) ...[
-                        const SizedBox(height: 20),
-                        Text(
-                          _targetWord.toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xfff16704),
-                            letterSpacing: 3,
-                          ),
-                        ),
-                      ],
+    // KEEP THE REST OF YOUR EXISTING _buildBody CODE HERE
 
-                      const SizedBox(height: 24),
+    // Detect keyboard
+    final bool keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
-                      _buildInputGrid(),
-                    ],
-                  ),
+    // Smaller spacing when keyboard is visible
+    final double topPadding = keyboardOpen ? 8 : 18;
+    final double cardTopPadding = keyboardOpen ? 14 : 22;
+    final double cardBottomPadding = keyboardOpen ? 16 : 22;
+    final double sectionSpacing = keyboardOpen ? 14 : 22;
+
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(18, topPadding, 18, keyboardOpen ? 12 : 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // =========================
+          // MAIN CARD
+          // =========================
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+              18,
+              cardTopPadding,
+              18,
+              cardBottomPadding,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: const Color(0xFFEEF0F5)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.055),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // WORD / QUESTION CARD
+                _buildHintCard(),
+
+                SizedBox(height: keyboardOpen ? 16 : 24),
+
+                // LETTER BOXES
+                _buildInputGrid(),
+
+                // VIEW ANSWER
+                if (_canViewAnswer) ...[
+                  SizedBox(height: keyboardOpen ? 14 : 20),
+                  _buildViewAnswerButton(),
+                ],
+              ],
+            ),
           ),
-        ),
-        _buildBottomButton(),
-      ],
+
+          // =========================
+          // BEGINNER HINT
+          // =========================
+          if (_isBeginner) ...[
+            SizedBox(height: keyboardOpen ? 8 : 12),
+            _buildBeginnerAnswer(),
+          ],
+
+          SizedBox(height: sectionSpacing),
+
+          // =========================
+          // NEXT BUTTON
+          // =========================
+          _buildNextButton(),
+
+          SizedBox(height: keyboardOpen ? 8 : 16),
+        ],
+      ),
     );
   }
 
   Widget _buildHintCard() {
-    if (_wordHint.isEmpty) return const SizedBox.shrink();
+    if (_wordHint.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       width: double.infinity,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(vertical: 24),
+
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F2FD),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        _wordHint.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w900,
-          color: Color(0xFF1B1A55),
-          letterSpacing: 6,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF6F4FF), Color(0xFFFAF9FF)],
         ),
+
+        borderRadius: BorderRadius.circular(20),
+
+        border: Border.all(color: const Color(0xFFE6E1FA)),
+      ),
+
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          _wordHint.toUpperCase(),
+
+          textAlign: TextAlign.center,
+
+          style: TextStyle(
+            fontSize: _wordHint.length > 10 ? 24 : 30,
+
+            fontWeight: FontWeight.w900,
+
+            color: const Color(0xFF24205D),
+
+            letterSpacing: _wordHint.length > 10 ? 3 : 5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Compact beginner hint displayed
+  /// BELOW the main white card.
+  Widget _buildBeginnerAnswer() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FBF5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBDEBD0), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.lightbulb_outline_rounded,
+            color: Color(0xFF1DAA61),
+            size: 20,
+          ),
+
+          const SizedBox(width: 9),
+
+          const Text(
+            "Hint:",
+            style: TextStyle(
+              color: Color(0xFF727A84),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(width: 7),
+
+          Expanded(
+            child: Text(
+              _targetWord,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF128B4E),
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewAnswerButton() {
+    return TextButton.icon(
+      onPressed: () {
+        setState(() {
+          _showAnswer = !_showAnswer;
+        });
+      },
+      style: TextButton.styleFrom(
+        foregroundColor: const Color(0xFFF16704),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: Color(0xFFFFCAA4)),
+        ),
+      ),
+      icon: Icon(
+        _showAnswer ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size: 20,
+      ),
+      label: Text(
+        _showAnswer ? "Hide Answer" : "View Answer",
+        style: const TextStyle(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -272,49 +489,96 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
   Widget _buildInputGrid() {
     return AnimatedBuilder(
       animation: _shakeController,
+
       builder: (context, child) {
-        double offset = _shakeController.isAnimating
+        final double offset = _shakeController.isAnimating
             ? (0.5 - (0.5 - _shakeController.value).abs()) * 15
-            : 0.0;
-        return Transform.translate(
-          offset: Offset(offset, 0),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                int totalLetters = _targetWord.replaceAll(" ", "").length;
+            : 0;
 
-                double spacing = totalLetters > 8 ? 4.0 : 6.0;
-                double boxWidth = totalLetters > 8 ? 30.0 : 34.0;
-                double boxHeight = boxWidth * 1.35;
-                double fontSize = totalLetters > 8 ? 18.0 : 22.0;
-
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_targetWord.length, (i) {
-                    if (_targetWord[i] == " ") {
-                      return const SizedBox(width: 8);
-                    }
-                    int controllerIdx = _targetWord
-                        .substring(0, i)
-                        .replaceAll(" ", "")
-                        .length;
-                    return Padding(
-                      padding: EdgeInsets.symmetric(horizontal: spacing / 2),
-                      child: _buildModernInputBox(
-                        controllerIdx,
-                        boxWidth,
-                        boxHeight,
-                        fontSize,
-                      ),
-                    );
-                  }),
-                );
-              },
-            ),
-          ),
-        );
+        return Transform.translate(offset: Offset(offset, 0), child: child);
       },
+
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final int totalLetters = _targetWord.replaceAll(" ", "").length;
+
+          double spacing;
+          double boxWidth;
+          double boxHeight;
+          double fontSize;
+
+          /// Automatically shrink
+          /// letter boxes for long words.
+          if (totalLetters <= 5) {
+            spacing = 7;
+            boxWidth = 42;
+            boxHeight = 54;
+            fontSize = 22;
+          } else if (totalLetters <= 7) {
+            spacing = 6;
+            boxWidth = 38;
+            boxHeight = 50;
+            fontSize = 21;
+          } else if (totalLetters <= 9) {
+            spacing = 5;
+            boxWidth = 34;
+            boxHeight = 46;
+            fontSize = 19;
+          } else if (totalLetters <= 11) {
+            spacing = 4;
+            boxWidth = 30;
+            boxHeight = 42;
+            fontSize = 17;
+          } else if (totalLetters <= 13) {
+            spacing = 3;
+            boxWidth = 27;
+            boxHeight = 39;
+            fontSize = 16;
+          } else {
+            spacing = 2;
+            boxWidth = 24;
+            boxHeight = 36;
+            fontSize = 14;
+          }
+
+          return SizedBox(
+            width: double.infinity,
+
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+
+                mainAxisAlignment: MainAxisAlignment.center,
+
+                children: List.generate(_targetWord.length, (i) {
+                  if (_targetWord[i] == " ") {
+                    return SizedBox(width: totalLetters > 10 ? 5 : 10);
+                  }
+
+                  final int controllerIndex = _targetWord
+                      .substring(0, i)
+                      .replaceAll(" ", "")
+                      .length;
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: spacing / 2),
+
+                    child: _buildModernInputBox(
+                      controllerIndex,
+                      boxWidth,
+                      boxHeight,
+                      fontSize,
+                    ),
+                  );
+                }),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -324,91 +588,144 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     double height,
     double fontSize,
   ) {
-    Color borderColor = Colors.purple.shade100;
-    double borderWidth = 1.0;
-    BorderRadius borderRadius = BorderRadius.circular(6);
+    final String currentText = _controllers[index].text.toUpperCase();
 
-    String currentText = _controllers[index].text.toUpperCase();
-    String cleanTarget = _targetWord.replaceAll(" ", "");
+    final String cleanTarget = _targetWord.replaceAll(" ", "");
 
-    if (currentText.isNotEmpty) {
-      String expectedChar = cleanTarget[index];
-      if (currentText == expectedChar) {
-        borderColor = Colors.green.shade600;
-        borderWidth = 2.0;
-        borderRadius = BorderRadius.circular(8);
-      } else {
-        borderColor = Colors.red.shade600;
-        borderWidth = 2.0;
-        borderRadius = BorderRadius.circular(8);
-      }
-    } else if (_focusNodes[index].hasFocus) {
-      borderColor = const Color(0xfff16704);
-      borderWidth = 1.5;
+    final String expectedChar = cleanTarget[index];
+
+    final bool hasText = currentText.isNotEmpty;
+
+    final bool isCorrect = hasText && currentText == expectedChar;
+
+    final bool isFocused = _focusNodes[index].hasFocus;
+
+    Color borderColor = const Color(0xFFE1DDF3);
+
+    double borderWidth = 1.2;
+
+    if (hasText) {
+      borderColor = isCorrect
+          ? const Color(0xFF24B76A)
+          : const Color(0xFFE94B4B);
+
+      borderWidth = 1.8;
+    } else if (isFocused) {
+      borderColor = const Color(0xFFF16704);
+
+      borderWidth = 1.8;
     }
 
-    // Wrap Box in a KeyboardListener to track backspaces in the middle of typing
+    String displayedText = currentText;
+
+    Color textColor = const Color(0xFF24205D);
+
+    if (!hasText && _showAnswer) {
+      displayedText = expectedChar;
+
+      textColor = const Color(0xFF24205D).withOpacity(0.22);
+    }
+
     return KeyboardListener(
       focusNode: FocusNode(skipTraversal: true),
+
       onKeyEvent: (KeyEvent event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.backspace) {
-            // If field is empty and backspace pressed, drop focus backward
             if (_controllers[index].text.isEmpty && index > 0) {
               _focusNodes[index - 1].requestFocus();
+
               _controllers[index - 1].clear();
+
               setState(() {});
             }
           }
         }
       },
-      child: Container(
+
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+
         width: width,
         height: height,
+
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F2FD),
-          borderRadius: borderRadius,
+          color: hasText && isCorrect
+              ? const Color(0xFFF1FBF5)
+              : const Color(0xFFF8F7FC),
+
+          borderRadius: BorderRadius.circular(10),
+
           border: Border.all(color: borderColor, width: borderWidth),
+
+          boxShadow: isFocused
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF16704).withOpacity(0.10),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
         ),
+
         child: Stack(
           alignment: Alignment.center,
+
           children: [
             Text(
-              currentText,
+              displayedText,
+
               style: TextStyle(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w900,
-                color: const Color(0xFF1B1A55),
+                color: textColor,
               ),
             ),
+
             TextField(
               controller: _controllers[index],
+
               focusNode: _focusNodes[index],
+
               textAlign: TextAlign.center,
+
               maxLength: 1,
+
               showCursor: false,
               enableSuggestions: false,
               autocorrect: false,
+
+              textCapitalization: TextCapitalization.characters,
+
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+              ],
+
               style: const TextStyle(color: Colors.transparent),
+
               decoration: const InputDecoration(
                 counterText: "",
                 border: InputBorder.none,
                 isCollapsed: true,
               ),
+
               onChanged: (value) {
                 setState(() {});
+
                 if (value.isNotEmpty) {
-                  int nextIndex = index + 1;
-                  if (nextIndex < _controllers.length) {
-                    _focusNodes[nextIndex].requestFocus();
-                  } else {
-                    _focusNodes[index].unfocus();
+                  // As soon as the complete answer is correct,
+                  // close the keyboard automatically.
+                  if (_isAnswerCorrect()) {
+                    _hideKeyboard();
+                    HapticFeedback.lightImpact();
+                    return;
                   }
-                } else {
-                  // Fallback regular backspace navigation when deleting populated boxes
-                  if (index > 0) {
-                    _focusNodes[index - 1].requestFocus();
-                  }
+
+                  // Go to the next empty letter box.
+                  // This also skips the pre-filled Intermediate letters.
+                  _focusNextEmpty(index);
+                } else if (index > 0) {
+                  _focusNodes[index - 1].requestFocus();
                 }
               },
             ),
@@ -418,120 +735,39 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     );
   }
 
-  Widget _buildRemarksCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            backgroundColor: Colors.green.shade700,
-            child: const Icon(Icons.psychology, color: Colors.white),
+  Widget _buildNextButton() {
+    return GestureDetector(
+      onTap: _handleNext,
+      child: Container(
+        height: 54,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF16704), Color(0xFFFF7D1D)],
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "REMARKS",
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              Text(
-                "Synonyms",
-                style: TextStyle(
-                  color: Colors.green.shade800,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                _targetWord.isNotEmpty ? _targetWord : "...",
-                style: const TextStyle(color: Colors.black87, fontSize: 16),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeedbackCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEBF3FE),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            backgroundColor: Colors.blue.shade700,
-            child: const Icon(
-              Icons.chat_bubble_rounded,
-              color: Colors.white,
-              size: 20,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF16704).withOpacity(0.20),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
             ),
-          ),
-          const SizedBox(width: 16),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "FEEDBACK",
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Next",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 17,
               ),
-              SizedBox(height: 2),
-              Text(
-                "Enter here...",
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomButton() {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24, top: 10),
-      child: GestureDetector(
-        onTap: _handleNext,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xfff16704), Color.fromARGB(255, 249, 116, 22)],
             ),
-            borderRadius: BorderRadius.circular(32),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                "Next  ",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-              Icon(Icons.arrow_forward, color: Colors.white, size: 22),
-            ],
-          ),
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 21),
+          ],
         ),
       ),
     );
@@ -540,26 +776,42 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
   Widget _buildShimmerLoading() {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
+
       highlightColor: Colors.grey.shade100,
+
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
+
         child: Column(
           children: [
             Container(
-              height: 200,
+              height: 260,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
               ),
             ),
-            const SizedBox(height: 20),
+
+            const SizedBox(height: 14),
+
             Container(
-              height: 80,
+              height: 42,
+              width: 150,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            Container(
+              height: 58,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(18),
               ),
             ),
           ],
@@ -577,49 +829,104 @@ class _PredictionOppositePageState extends State<PredictionOppositePage>
     required VoidCallback onBtnPressed,
   }) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+
+        child: Container(
+          width: double.infinity,
+
+          padding: const EdgeInsets.all(26),
+
+          decoration: BoxDecoration(
+            color: Colors.white,
+
+            borderRadius: BorderRadius.circular(26),
+
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 70, color: iconColor),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Container(
+                width: 84,
+                height: 84,
+
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
+
+                child: Icon(icon, size: 46, color: iconColor),
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                title,
+
+                textAlign: TextAlign.center,
+
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF202124),
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                message,
+
+                textAlign: TextAlign.center,
+
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: Color(0xFF7B8190),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+
+                child: ElevatedButton(
+                  onPressed: onBtnPressed,
+
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xfff16704),
+                    elevation: 0,
+
+                    backgroundColor: const Color(0xFFF16704),
+
+                    foregroundColor: Colors.white,
+
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: onBtnPressed,
+
                   child: Text(
                     buttonText,
-                    style: const TextStyle(color: Colors.white),
+
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

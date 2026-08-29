@@ -1,4 +1,4 @@
-import 'package:glapod/constants/api_constants.dart';
+import 'package:Edmaster/constants/api_constants.dart';
 
 class ShareHelper {
   /// Formats a teaser message for sharing questions and answers.

@@ -7,6 +7,7 @@ import 'widgets.dart/appbar_page.dart';
 import 'prediction_name_page.dart';
 import 'prediction_tense_page.dart';
 import 'prediction_opposit_word.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ShimmerPlaceholder extends StatelessWidget {
   final double width;
@@ -46,17 +47,99 @@ class PredictionPage extends StatefulWidget {
 
 class _PredictionPageState extends State<PredictionPage> {
   late PageController _sliderController;
+
   int _currentSliderIndex = 0;
-  bool _isGuessNameExpanded = false;
+
+  int _sliderBasePage = 10000;
+
   bool _showOtherSections = false;
 
   @override
   void initState() {
     super.initState();
-    _sliderController = PageController(viewportFraction: 1.0, initialPage: 0);
-    Future.microtask(
-      () => context.read<PredictionProvider>().fetchCategories(),
+
+    _sliderController = PageController(
+      viewportFraction: 1.0,
+      initialPage: _sliderBasePage,
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCategoriesAndPrecacheImages();
+    });
+  }
+
+  Future<void> _loadCategoriesAndPrecacheImages() async {
+    final provider = context.read<PredictionProvider>();
+
+    await provider.fetchCategories();
+
+    if (!mounted || provider.categories.isEmpty) {
+      return;
+    }
+
+    final int categoryCount = provider.categories.length;
+
+    // Create a large page number which starts exactly
+    // at the first real category.
+    _sliderBasePage = 10000 - (10000 % categoryCount);
+
+    if (mounted) {
+      setState(() {
+        _currentSliderIndex = 0;
+      });
+    }
+
+    // After the slider has been built, move it to the
+    // calculated base page.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      if (_sliderController.hasClients) {
+        _sliderController.jumpToPage(_sliderBasePage);
+      }
+    });
+
+    final List<String> imageUrls = provider.categories
+        .map((category) => (category['image'] ?? '').toString())
+        .where((url) => url.isNotEmpty && url != 'null')
+        .toList();
+
+    if (imageUrls.isEmpty) {
+      return;
+    }
+
+    // First image gets priority so initial display
+    // becomes available as quickly as possible.
+    try {
+      await precacheImage(CachedNetworkImageProvider(imageUrls.first), context);
+    } catch (error) {
+      debugPrint('First prediction image pre-cache failed: $error');
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    // Cache all remaining slider images in parallel.
+    // This makes subsequent swipes much smoother.
+    final List<Future<void>> cacheTasks = [];
+
+    for (final String imageUrl in imageUrls.skip(1)) {
+      cacheTasks.add(
+        precacheImage(CachedNetworkImageProvider(imageUrl), context).catchError(
+          (error) {
+            debugPrint(
+              'Prediction image pre-cache failed: '
+              '$imageUrl, $error',
+            );
+          },
+        ),
+      );
+    }
+
+    await Future.wait(cacheTasks);
   }
 
   @override
@@ -67,6 +150,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
   void _navToName(String catName, int catId, String level) {
     final apiLevel = context.read<PredictionProvider>().mapToApi(level);
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -81,6 +165,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
   void _navToTense(String level) {
     final apiLevel = context.read<PredictionProvider>().mapToApi(level);
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => PredictionTensePage(level: apiLevel)),
@@ -89,6 +174,7 @@ class _PredictionPageState extends State<PredictionPage> {
 
   void _navToOpposite(String level) {
     final apiLevel = context.read<PredictionProvider>().mapToApi(level);
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -113,7 +199,7 @@ class _PredictionPageState extends State<PredictionPage> {
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFFEEF2F6),
-                    Color.fromARGB(255, 142, 168, 251),
+                    Color.fromARGB(255, 254, 235, 175),
                   ],
                 ),
               ),
@@ -210,7 +296,7 @@ class _PredictionPageState extends State<PredictionPage> {
       curve: Curves.easeInOut,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F5FF), // Light purple background
+        color: const Color(0xFFF7F5FF),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: const Color(0xFFD7CCFF), width: 2),
         boxShadow: [
@@ -224,13 +310,8 @@ class _PredictionPageState extends State<PredictionPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: () {
-              setState(() {
-                _isGuessNameExpanded = !_isGuessNameExpanded;
-              });
-            },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
@@ -249,13 +330,12 @@ class _PredictionPageState extends State<PredictionPage> {
                     ),
                   ),
                   const SizedBox(width: 14),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Guess the Name",
+                          "Name Hunt",
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w900,
@@ -263,158 +343,170 @@ class _PredictionPageState extends State<PredictionPage> {
                           ),
                         ),
                         const SizedBox(height: 3),
-                        Text(
-                          _isGuessNameExpanded
-                              ? "Swipe to see topics or tap to close"
-                              : "Tap dropdown to explore categories!",
+                        const Text(
+                          "Swipe to explore topics",
                           style: TextStyle(
                             fontSize: 13,
-                            color: const Color(0xFF64748B),
+                            color: Color(0xFF64748B),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(width: 8),
-
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEDE9FE),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isGuessNameExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: cardAccentColor,
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Column(
-              children: [
-                Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: PageView.builder(
-                            controller: _sliderController,
-                            itemCount: pp.categories.length,
-                            onPageChanged: (index) {
-                              setState(() {
-                                _currentSliderIndex = index;
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              final cat = pp.categories[index];
-                              int safeId =
-                                  int.tryParse(cat['id'].toString()) ?? 0;
 
-                              return _buildHeroSliderItem(
-                                cat['subject'] ?? "Flags",
-                                safeId,
-                                cat['image'] ?? "",
-                                pp,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (pp.categories.isNotEmpty)
-                      Positioned(
-                        top: 7,
-                        left: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black12, blurRadius: 4),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.topic_rounded,
-                                size: 14,
-                                color: cardAccentColor,
+          Column(
+            children: [
+              Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+
+                        // Infinite looping slider
+                        child: pp.categories.isEmpty
+                            ? Shimmer.fromColors(
+                                baseColor: const Color(0xFFE8E5F5),
+                                highlightColor: const Color(0xFFF8F7FF),
+                                child: Container(color: Colors.white),
+                              )
+                            : PageView.builder(
+                                controller: _sliderController,
+
+                                // No itemCount:
+                                // allows continuous
+                                // forward scrolling.
+                                itemBuilder: (context, pageIndex) {
+                                  final int realIndex =
+                                      pageIndex % pp.categories.length;
+
+                                  final cat = pp.categories[realIndex];
+
+                                  final int safeId =
+                                      int.tryParse(cat['id'].toString()) ?? 0;
+
+                                  return _buildHeroSliderItem(
+                                    cat['subject'] ?? "Flags",
+                                    safeId,
+                                    cat['image'] ?? "",
+                                    pp,
+                                  );
+                                },
+
+                                onPageChanged: (pageIndex) {
+                                  if (pp.categories.isEmpty) {
+                                    return;
+                                  }
+
+                                  final int realIndex =
+                                      pageIndex % pp.categories.length;
+
+                                  setState(() {
+                                    _currentSliderIndex = realIndex;
+                                  });
+
+                                  final int nextIndex =
+                                      (realIndex + 1) % pp.categories.length;
+
+                                  _precacheNextImage(pp, nextIndex);
+                                },
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                pp.categories[_currentSliderIndex]['subject'] ??
-                                    "Flags",
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
-                                ),
+                      ),
+                    ),
+                  ),
+
+                  if (pp.categories.isNotEmpty)
+                    Positioned(
+                      top: 7,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 4),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.topic_rounded,
+                              size: 14,
+                              color: cardAccentColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              pp.categories[_currentSliderIndex]['subject'] ??
+                                  "Flags",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      left: 26,
-                      top: 0,
-                      bottom: 16,
-                      child: Center(
-                        child: _buildSliderNavButton(
-                          icon: Icons.keyboard_arrow_left_rounded,
-                          onTap: () {
-                            if (_currentSliderIndex > 0) {
-                              _sliderController.previousPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          },
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    Positioned(
-                      right: 26,
-                      top: 0,
-                      bottom: 16,
-                      child: Center(
-                        child: _buildSliderNavButton(
-                          icon: Icons.keyboard_arrow_right_rounded,
-                          onTap: () {
-                            if (_currentSliderIndex <
-                                pp.categories.length - 1) {
-                              _sliderController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            }
-                          },
-                        ),
+
+                  Positioned(
+                    left: 26,
+                    top: 0,
+                    bottom: 16,
+                    child: Center(
+                      child: _buildSliderNavButton(
+                        icon: Icons.keyboard_arrow_left_rounded,
+                        onTap: () {
+                          if (!_sliderController.hasClients ||
+                              pp.categories.isEmpty) {
+                            return;
+                          }
+
+                          _sliderController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            crossFadeState: _isGuessNameExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 250),
+                  ),
+
+                  Positioned(
+                    right: 26,
+                    top: 0,
+                    bottom: 16,
+                    child: Center(
+                      child: _buildSliderNavButton(
+                        icon: Icons.keyboard_arrow_right_rounded,
+                        onTap: () {
+                          if (!_sliderController.hasClients ||
+                              pp.categories.isEmpty) {
+                            return;
+                          }
+
+                          _sliderController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -432,16 +524,58 @@ class _PredictionPageState extends State<PredictionPage> {
         setState(() {
           _showOtherSections = true;
         });
-        _showLevelBottomSheet(label, pp, (lvl) => _navToName(label, id, lvl));
+
+        _showLevelBottomSheet(
+          label,
+          pp,
+          (level) => _navToName(label, id, level),
+        );
       },
-      child: imageUrl.isNotEmpty
-          ? Image.network(
-              imageUrl,
+
+      child: imageUrl.isNotEmpty && imageUrl != 'null'
+          ? CachedNetworkImage(
+              imageUrl: imageUrl,
+
+              width: double.infinity,
+
+              height: double.infinity,
+
               fit: BoxFit.cover,
+
               alignment: Alignment.center,
-              errorBuilder: (context, error, stackTrace) {
+
+              // Decode close to actual
+              // rendered size.
+              memCacheWidth: 900,
+
+              // Shorter transition reduces
+              // visible loading delay.
+              fadeInDuration: const Duration(milliseconds: 80),
+
+              fadeOutDuration: const Duration(milliseconds: 50),
+
+              placeholderFadeInDuration: Duration.zero,
+
+              placeholder: (context, url) {
+                return Shimmer.fromColors(
+                  baseColor: const Color(0xFFE8E5F5),
+                  highlightColor: const Color(0xFFF8F7FF),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: Colors.white,
+                  ),
+                );
+              },
+
+              errorWidget: (context, url, error) {
+                debugPrint('Prediction image failed: $url');
+
+                debugPrint('Prediction image error: $error');
+
                 return Container(
-                  color: const Color(0xFF1E293B).withOpacity(0.05),
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.05),
+                  alignment: Alignment.center,
                   child: const Icon(
                     Icons.broken_image_rounded,
                     size: 36,
@@ -455,6 +589,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 color: const Color(0xFFEDE9FE),
                 borderRadius: BorderRadius.circular(16),
               ),
+              alignment: Alignment.center,
               child: const Icon(
                 Icons.image_not_supported_rounded,
                 size: 36,
@@ -607,7 +742,6 @@ class _PredictionPageState extends State<PredictionPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Handle
                       Center(
                         child: Container(
                           width: 46,
@@ -618,10 +752,7 @@ class _PredictionPageState extends State<PredictionPage> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 24),
-
-                      // Header
                       Row(
                         children: [
                           Container(
@@ -637,9 +768,7 @@ class _PredictionPageState extends State<PredictionPage> {
                               size: 30,
                             ),
                           ),
-
                           const SizedBox(width: 16),
-
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,25 +794,22 @@ class _PredictionPageState extends State<PredictionPage> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 28),
-
                       ...pp.displayLabels.map(
                         (level) => Padding(
                           padding: const EdgeInsets.only(bottom: 14),
                           child: _buildModernLevelCard(level, () {
                             Navigator.pop(context);
+
                             onLevelSelected(level);
                           }),
                         ),
                       ),
-
                       const SizedBox(height: 10),
                     ],
                   ),
                 ),
 
-                // Close button at the top-right corner
                 Positioned(
                   top: 12,
                   right: 12,
@@ -750,8 +876,8 @@ class _PredictionPageState extends State<PredictionPage> {
     switch (level.toLowerCase()) {
       case "beginner":
         icon = Icons.eco_rounded;
-        iconBg = const Color.fromARGB(255, 220, 255, 239); 
-        borderColor = const Color(0xFF22C55E); // Green
+        iconBg = const Color.fromARGB(255, 220, 255, 239);
+        borderColor = const Color(0xFF22C55E);
         arrowBg = const Color.fromARGB(255, 220, 255, 239);
         subtitle = "Perfect for getting started";
         break;
@@ -759,7 +885,7 @@ class _PredictionPageState extends State<PredictionPage> {
       case "intermediate":
         icon = Icons.flash_on_rounded;
         iconBg = const Color(0xFFFFF7D6);
-        borderColor = const Color(0xFFFACC15); // Yellow
+        borderColor = const Color(0xFFFACC15);
         arrowBg = const Color(0xFFFFF7D6);
         subtitle = "Improve your skills";
         break;
@@ -767,7 +893,7 @@ class _PredictionPageState extends State<PredictionPage> {
       default:
         icon = Icons.workspace_premium_rounded;
         iconBg = const Color(0xFFFFF1F2);
-        borderColor = const Color(0xFFEF4444); // Red
+        borderColor = const Color(0xFFEF4444);
         arrowBg = const Color(0xFFFFF1F2);
         subtitle = "Challenge yourself";
     }
@@ -795,9 +921,7 @@ class _PredictionPageState extends State<PredictionPage> {
                 ),
                 child: Icon(icon, color: const Color(0xFF6366F1), size: 28),
               ),
-
               const SizedBox(width: 16),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -810,9 +934,7 @@ class _PredictionPageState extends State<PredictionPage> {
                         color: Color(0xFF1E293B),
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       subtitle,
                       style: const TextStyle(
@@ -823,7 +945,6 @@ class _PredictionPageState extends State<PredictionPage> {
                   ],
                 ),
               ),
-
               Container(
                 width: 42,
                 height: 42,
@@ -842,5 +963,29 @@ class _PredictionPageState extends State<PredictionPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _precacheNextImage(
+    PredictionProvider provider,
+    int index,
+  ) async {
+    if (!mounted || provider.categories.isEmpty) {
+      return;
+    }
+
+    final int safeIndex = index % provider.categories.length;
+
+    final String imageUrl = (provider.categories[safeIndex]['image'] ?? '')
+        .toString();
+
+    if (imageUrl.isEmpty || imageUrl == 'null') {
+      return;
+    }
+
+    try {
+      await precacheImage(CachedNetworkImageProvider(imageUrl), context);
+    } catch (error) {
+      debugPrint('Next prediction image pre-cache failed: $error');
+    }
   }
 }

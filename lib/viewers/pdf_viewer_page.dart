@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:glapod/widgets.dart/appbar_page.dart';
-import 'package:glapod/utils/app_colors.dart';
+import 'package:Edmaster/widgets.dart/appbar_page.dart';
+import 'package:Edmaster/utils/app_colors.dart';
 
 class PdfViewerPage extends StatefulWidget {
   final String path, title;
