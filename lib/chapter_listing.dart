@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/textbook_provider.dart';
+import 'pdf_view_page.dart';
 import 'widgets.dart/appbar_page.dart';
 import 'video_listing.dart';
 import 'notes_listing.dart';
@@ -11,7 +15,7 @@ class SubjectDetailPage extends StatelessWidget {
   final String subjectId;
   final List<dynamic> chapters;
 
-  // Modern, energetic yet soft child-friendly theme colors
+  // Modern theme colors
   final List<Color> themeColors = const [
     Color(0xFF4F46E5), // Indigo
     Color(0xFF10B981), // Emerald Green
@@ -31,7 +35,7 @@ class SubjectDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6), // Smooth off-white surface
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: CustomAppBar(height: 70, title: subjectName),
       body: chapters.isEmpty
           ? const EmptyStateWidget(msg: "No chapters available!")
@@ -74,20 +78,36 @@ class ChapterAccordionItem extends StatefulWidget {
 class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
   bool _isExpanded = false;
 
+  // Prevent repeated textbook opening
+  bool _isOpeningTextbook = false;
+
   @override
   Widget build(BuildContext context) {
-    // 1. Read real flags directly from your API response schema
+    // Read API flags
     final bool showNotes = widget.chapter['notes'] == true;
+
     final bool showSolutions = widget.chapter['solutions'] == true;
+
     final bool showVideos = widget.chapter['videos'] == true;
 
-    // Optional upcoming database flags (Change to match your API keys later if needed)
+    final String textbookUrl = (widget.chapter['textbook'] ?? '')
+        .toString()
+        .trim();
+
+    final bool showTextbook = textbookUrl.isNotEmpty && textbookUrl != 'null';
+
     final bool showPractice = widget.chapter['practice'] == true;
+
     final bool showQuiz = widget.chapter['quiz'] == true;
 
-    // Check if there is absolutely nothing available inside this horizontal row
+    // Include videos in the empty-resource check
     final bool isRowEntirelyEmpty =
-        !showNotes && !showSolutions && !showPractice && !showQuiz;
+        !showTextbook &&
+        !showNotes &&
+        !showSolutions &&
+        !showPractice &&
+        !showQuiz &&
+        !showVideos;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -97,9 +117,7 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: _isExpanded
-              ? widget.activeColor.withOpacity(0.35)
-              : widget.activeColor.withOpacity(0.35),
+          color: widget.activeColor.withOpacity(0.35),
           width: 2,
         ),
         boxShadow: [
@@ -118,11 +136,13 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
         ),
         child: ExpansionTile(
           initiallyExpanded: _isExpanded,
+
           onExpansionChanged: (expanded) {
             setState(() {
               _isExpanded = expanded;
             });
           },
+
           trailing: AnimatedRotation(
             turns: _isExpanded ? 0.5 : 0,
             duration: const Duration(milliseconds: 250),
@@ -138,6 +158,7 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
               ),
             ),
           ),
+
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -150,7 +171,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
               size: 22,
             ),
           ),
+
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+
           title: Text(
             (widget.chapter['title'] ?? "Untitled Chapter").toString(),
             maxLines: 2,
@@ -162,6 +185,7 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
               letterSpacing: .1,
             ),
           ),
+
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
@@ -172,9 +196,10 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Divider(height: 1, color: Color(0xFFF3F4F6)),
                   ),
+
                   const SizedBox(height: 16),
 
-                  // Top Graphic Row (Image + Learning Progress Tracking)
+                  // Top graphic row
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
@@ -222,7 +247,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                                   ),
                                 ),
                         ),
+
                         const SizedBox(width: 16),
+
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,7 +262,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                                   color: Colors.grey.shade500,
                                 ),
                               ),
+
                               const SizedBox(height: 6),
+
                               Row(
                                 children: [
                                   Expanded(
@@ -252,7 +281,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                                       ),
                                     ),
                                   ),
+
                                   const SizedBox(width: 12),
+
                                   Text(
                                     "65%",
                                     style: TextStyle(
@@ -269,11 +300,11 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 20),
 
-                  // 🌟 HORIZONTALLY SCROLLABLE OPTIONS ROW 🌟
+                  // Resource options
                   if (isRowEntirelyEmpty)
-                    // Playful placeholder shown ONLY if everything else is hidden
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Container(
@@ -290,12 +321,14 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                           children: [
                             const Text("🚀", style: TextStyle(fontSize: 20)),
                             const SizedBox(width: 12),
-                            Text(
-                              "New learning adventures coming soon!",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade500,
+                            Expanded(
+                              child: Text(
+                                "New learning adventures coming soon!",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade500,
+                                ),
                               ),
                             ),
                           ],
@@ -312,7 +345,11 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                       ),
                       child: Row(
                         children: [
-                          // Conditionals completely remove widgets if flag is false
+                          // TEXTBOOK
+                          if (showTextbook)
+                            _buildTextbookCard(context, textbookUrl),
+
+                          // NOTES
                           if (showNotes)
                             _buildActionCard(
                               context,
@@ -331,6 +368,8 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                                 ),
                               ),
                             ),
+
+                          // SOLUTIONS
                           if (showSolutions)
                             _buildActionCard(
                               context,
@@ -349,6 +388,8 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                                 ),
                               ),
                             ),
+
+                          // PRACTICE
                           if (showPractice)
                             _buildActionCard(
                               context,
@@ -358,6 +399,8 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                               accentColor: const Color(0xFFFF9800),
                               onTap: () {},
                             ),
+
+                          // DAILY QUIZ
                           if (showQuiz)
                             _buildActionCard(
                               context,
@@ -371,9 +414,10 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                       ),
                     ),
 
-                  // Only display video section or separation logic if video module is true
+                  // VIDEO LESSONS
                   if (showVideos) ...[
                     const SizedBox(height: 16),
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _buildVideoRowAction(
@@ -401,7 +445,191 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
     );
   }
 
-  // Horizontal Scroll Resource Item Card Component
+  // =========================================================
+  // TEXTBOOK CARD
+  // =========================================================
+
+  Widget _buildTextbookCard(BuildContext context, String textbookUrl) {
+    return Container(
+      width: 165,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF8B5CF6).withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF8B5CF6).withOpacity(0.15),
+          width: 1.5,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: _isOpeningTextbook
+            ? null
+            : () => _openTextbook(context, textbookUrl),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B5CF6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _isOpeningTextbook
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.menu_book_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isOpeningTextbook ? "Opening..." : "Textbook",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  ),
+
+                  const SizedBox(height: 1),
+
+                  Text(
+                    _isOpeningTextbook ? "Please wait" : "Read chapter",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================
+  // OPEN TEXTBOOK
+  // =========================================================
+
+  Future<void> _openTextbook(BuildContext context, String textbookUrl) async {
+    // Prevent duplicate taps
+    if (_isOpeningTextbook) return;
+
+    setState(() {
+      _isOpeningTextbook = true;
+    });
+
+    try {
+      final provider = context.read<TextbookProvider>();
+
+      debugPrint('Opening textbook URL: $textbookUrl');
+
+      final file = await provider.getBook(textbookUrl);
+
+      if (!mounted) return;
+
+      // Check file result
+      if (file == null) {
+        _showTextbookError('Unable to download textbook. Please try again.');
+        return;
+      }
+
+      // Check whether file exists
+      final bool exists = await file.exists();
+
+      if (!exists) {
+        _showTextbookError('Textbook file not found. Please try again.');
+        return;
+      }
+
+      // Check whether file is empty
+      final int fileSize = await file.length();
+
+      debugPrint('Textbook local path: ${file.path}');
+
+      debugPrint('Textbook file size: $fileSize bytes');
+
+      if (fileSize == 0) {
+        _showTextbookError('Textbook file is empty or incomplete.');
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Open PDF viewer
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PdfViewerPage(
+            url: file.path,
+            downloadUrl: textbookUrl,
+            title: (widget.chapter['title'] ?? "Textbook").toString(),
+            isLocal: true,
+          ),
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Textbook opening error: $e');
+
+      debugPrint('Stack trace: $stackTrace');
+
+      if (!mounted) return;
+
+      _showTextbookError('Unable to open textbook. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOpeningTextbook = false;
+        });
+      }
+    }
+  }
+
+  // =========================================================
+  // ERROR MESSAGE
+  // =========================================================
+
+  void _showTextbookError(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // =========================================================
+  // RESOURCE CARD
+  // =========================================================
+
   Widget _buildActionCard(
     BuildContext context, {
     required IconData icon,
@@ -410,17 +638,18 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
     required Color accentColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 165,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          color: accentColor.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: accentColor.withOpacity(0.15), width: 1.5),
-        ),
+    return Container(
+      width: 165,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: accentColor.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accentColor.withOpacity(0.15), width: 1.5),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
         child: Row(
           children: [
             Container(
@@ -431,7 +660,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
               ),
               child: Icon(icon, color: Colors.white, size: 20),
             ),
+
             const SizedBox(width: 10),
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,7 +678,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                       color: accentColor,
                     ),
                   ),
+
                   const SizedBox(height: 1),
+
                   Text(
                     description,
                     maxLines: 1,
@@ -467,13 +700,17 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
     );
   }
 
-  // Modernized Video Player CTA Block layout
+  // =========================================================
+  // VIDEO ACTION
+  // =========================================================
+
   Widget _buildVideoRowAction(
     BuildContext context, {
     required Color accentColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -504,7 +741,9 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                 size: 22,
               ),
             ),
+
             const SizedBox(width: 14),
+
             const Text(
               "Watch Video Lessons",
               style: TextStyle(

@@ -5,14 +5,14 @@ import '../models/gk_master_model.dart';
 import '../providers/gk_master_provider.dart';
 import 'gk_quiz_page.dart';
 
-class GKMasterPage extends StatefulWidget {
-  const GKMasterPage({super.key});
+class QuizzMasterPage extends StatefulWidget {
+  const QuizzMasterPage({super.key});
 
   @override
-  State<GKMasterPage> createState() => _GKMasterPageState();
+  State<QuizzMasterPage> createState() => _GKMasterPageState();
 }
 
-class _GKMasterPageState extends State<GKMasterPage> {
+class _GKMasterPageState extends State<QuizzMasterPage> {
   void _showComingSoonDialog(BuildContext context, String categoryName) {
     showDialog<void>(
       context: context,
@@ -484,7 +484,7 @@ class _GKMasterPageState extends State<GKMasterPage> {
     if (provider.categories.isEmpty) {
       return const Center(
         key: ValueKey('empty-categories'),
-        child: Text('No categories found for this zone.'),
+        child: Text('No quiz categories found.'),
       );
     }
 

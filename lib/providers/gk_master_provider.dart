@@ -386,11 +386,34 @@ class GkProvider extends ChangeNotifier {
       return;
     }
 
+    // ---------------------------------------------------------
+    // NORMAL NEXT QUESTION
+    // ---------------------------------------------------------
     if (currentQuestionIndex < questions.length - 1) {
       currentQuestionIndex++;
 
+      // Make sure this question can be answered again
+      // if it has already appeared in a previous cycle.
+      final question = questions[currentQuestionIndex];
+
+      selectedAnswers.remove(question.id);
+      _answeredQuestionIds.remove(question.id);
+
       notifyListeners();
+      return;
     }
+
+    // ---------------------------------------------------------
+    // LAST QUESTION -> START AGAIN FROM QUESTION 1
+    // ---------------------------------------------------------
+
+    currentQuestionIndex = 0;
+
+    // Start a completely fresh cycle.
+    selectedAnswers.clear();
+    _answeredQuestionIds.clear();
+
+    notifyListeners();
   }
 
   /*

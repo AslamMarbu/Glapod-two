@@ -7,7 +7,7 @@ class GkService {
   Future<List<GkCategory>> fetchCategories() async {
     try {
       final Response response = await DioClient.instance.get(
-        '/api/gk-master/categories',
+        '/api/quizz-master/categories',
       );
 
       final data = response.data;
@@ -31,7 +31,7 @@ class GkService {
   Future<List<GkZone>> fetchZones({required int categoryId}) async {
     try {
       final Response response = await DioClient.instance.get(
-        '/api/gk-master/zones/$categoryId',
+        '/api/quizz-master/zones/$categoryId',
       );
 
       final data = response.data;
@@ -59,7 +59,7 @@ class GkService {
   }) async {
     try {
       final Response response = await DioClient.instance.get(
-        '/api/gk-master/questions/$zone/$categoryId/$level',
+        '/api/quizz-master/questions/$zone/$categoryId/$level',
       );
 
       final data = response.data;
@@ -85,7 +85,7 @@ class GkService {
   }) async {
     try {
       final Response response = await DioClient.instance.post(
-        '/api/gk-master/submit',
+        '/api/quizz-master/submit',
         data: {'answers': answers},
       );
 

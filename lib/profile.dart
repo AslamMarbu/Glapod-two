@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'services/student_service.dart';
+import 'services/profile_image_cache_service.dart';
 import 'widgets.dart/gradient_button.dart';
 import 'storage/local_storage_service.dart';
 import 'utils/ui_utils.dart';
@@ -11,6 +13,7 @@ import 'subscription_page.dart';
 import 'terms_condition_page.dart';
 import 'my_favourites_page.dart';
 import 'services/auth_service.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 class ProfilePage extends StatefulWidget {
   final bool showSuccessMsg;
@@ -57,6 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isClassSavedInStorage = false;
   Uint8List? _imageBytes;
   XFile? _imageFile;
+  File? _localProfileImage;
   String? _serverImageUrl;
 
   @override
@@ -75,7 +79,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _loadInitialData() async {
     await _handleLoadClasses();
+
     final data = await LocalStorageService.getStudent();
+
+    final localImage = await ProfileImageCacheService.getLocalImage();
 
     if (data != null && mounted) {
       setState(() {
@@ -87,11 +94,36 @@ class _ProfilePageState extends State<ProfilePage> {
         _mobileController.text = _maskSensitiveData(_rawMobile, isEmail: false);
 
         selectedClassId = data["class_id"]?.toString();
+
         _serverImageUrl = data["image"] ?? data["profile_photo_url"];
+
+        _localProfileImage = localImage;
+
         _isClassSavedInStorage =
             data["class_id"] != null && data["class_id"].toString().isNotEmpty;
+
         _isDataLoaded = true;
       });
+
+      if (localImage == null &&
+          _serverImageUrl != null &&
+          _serverImageUrl!.isNotEmpty) {
+        _downloadInitialProfileImage(_serverImageUrl!);
+      }
+    }
+  }
+
+  Future<void> _downloadInitialProfileImage(String imageUrl) async {
+    try {
+      final file = await ProfileImageCacheService.downloadAndCache(imageUrl);
+
+      if (file != null && mounted) {
+        setState(() {
+          _localProfileImage = file;
+        });
+      }
+    } catch (e) {
+      debugPrint("INITIAL PROFILE IMAGE CACHE ERROR => $e");
     }
   }
 
@@ -126,15 +158,18 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       );
+
       return;
     }
+
     final ImagePicker picker = ImagePicker();
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Wrap(
           children: [
             const ListTile(
@@ -143,42 +178,84 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
+
+            // ---------------------------------------------------------
+            // GALLERY
+            // ---------------------------------------------------------
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Gallery'),
               onTap: () async {
                 final XFile? image = await picker.pickImage(
                   source: ImageSource.gallery,
-                  imageQuality: 50,
+                  imageQuality: 90,
                 );
-                if (image != null) {
-                  final bytes = await image.readAsBytes();
 
-                  setState(() {
-                    _imageFile = image;
-                    _imageBytes = bytes;
-                  });
+                if (image == null) {
+                  return;
                 }
-                if (mounted) Navigator.pop(context);
+
+                final XFile? croppedImage = await _cropProfileImage(image);
+
+                if (croppedImage != null) {
+                  try {
+                    final bytes = await croppedImage.readAsBytes();
+
+                    if (!mounted) return;
+
+                    // Immediately show the newly selected image.
+                    setState(() {
+                      _imageFile = croppedImage;
+                      _imageBytes = bytes;
+                    });
+                  } catch (e) {
+                    debugPrint("READ CROPPED IMAGE ERROR => $e");
+                  }
+                }
+
+                if (mounted) {
+                  Navigator.pop(sheetContext);
+                }
               },
             ),
+
+            // ---------------------------------------------------------
+            // CAMERA
+            // ---------------------------------------------------------
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Camera'),
               onTap: () async {
                 final XFile? image = await picker.pickImage(
                   source: ImageSource.camera,
-                  imageQuality: 50,
+                  imageQuality: 90,
                 );
-                if (image != null) {
-                  final bytes = await image.readAsBytes();
 
-                  setState(() {
-                    _imageFile = image;
-                    _imageBytes = bytes;
-                  });
+                if (image == null) {
+                  return;
                 }
-                if (mounted) Navigator.pop(context);
+
+                final XFile? croppedImage = await _cropProfileImage(image);
+
+                if (croppedImage != null) {
+                  try {
+                    final bytes = await croppedImage.readAsBytes();
+
+                    if (!mounted) return;
+
+                    // Immediately show the newly selected image.
+                    setState(() {
+                      _imageFile = croppedImage;
+                      _imageBytes = bytes;
+                    });
+                  } catch (e) {
+                    debugPrint("READ CROPPED IMAGE ERROR => $e");
+                  }
+                }
+
+                if (mounted) {
+                  Navigator.pop(sheetContext);
+                }
               },
             ),
           ],
@@ -258,6 +335,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
         await LocalStorageService.updateStudentData(student);
 
+        File? cachedFile;
+
+        if (_imageBytes != null) {
+          cachedFile = await ProfileImageCacheService.saveImageBytes(
+            _imageBytes!,
+          );
+
+          if (cachedFile != null && mounted) {
+            setState(() {
+              _localProfileImage = cachedFile;
+            });
+          }
+        }
+
         if (mounted) {
           setState(() {
             _isClassSavedInStorage = true;
@@ -276,7 +367,7 @@ class _ProfilePageState extends State<ProfilePage> {
             type: MessageType.success,
           );
 
-          Navigator.pop(context);
+          Navigator.pop(context, cachedFile?.path);
         }
       } else {
         if (mounted) {
@@ -434,15 +525,31 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: CircleAvatar(
                   radius: 55,
                   backgroundColor: Colors.grey[200],
+
+                  // Priority:
+                  // 1. Newly selected image
+                  // 2. Local cached image
+                  // 3. Server image
                   backgroundImage: _imageBytes != null
                       ? MemoryImage(_imageBytes!)
+                      : _localProfileImage != null
+                      ? ResizeImage(
+                          FileImage(_localProfileImage!),
+                          width: 220,
+                          height: 220,
+                        )
                       : (_serverImageUrl != null && _serverImageUrl!.isNotEmpty
-                                ? NetworkImage(_serverImageUrl!)
-                                : null)
-                            as ImageProvider?,
+                            ? ResizeImage(
+                                NetworkImage(_serverImageUrl!),
+                                width: 220,
+                                height: 220,
+                              )
+                            : null),
+
                   child:
-                      (_imageBytes == null &&
-                          (_serverImageUrl == null || _serverImageUrl!.isEmpty))
+                      _imageBytes == null &&
+                          _localProfileImage == null &&
+                          (_serverImageUrl == null || _serverImageUrl!.isEmpty)
                       ? Icon(
                           Icons.person_rounded,
                           size: 50,
@@ -451,6 +558,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       : null,
                 ),
               ),
+
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -467,7 +575,9 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
         ),
+
         const SizedBox(height: 15),
+
         AnimatedBuilder(
           animation: _nameController,
           builder: (context, child) {
@@ -483,7 +593,9 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           },
         ),
+
         const SizedBox(height: 5),
+
         Text(
           "Update your profile and settings",
           style: TextStyle(fontSize: 14, color: Colors.grey[600]),
@@ -763,5 +875,64 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  Future<XFile?> _cropProfileImage(XFile image) async {
+    try {
+      debugPrint("CROP START => ${image.path}");
+
+      final CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: image.path,
+
+        // Square profile image.
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+
+        // Keep profile image small and fast.
+        maxWidth: 512,
+        maxHeight: 512,
+
+        compressFormat: ImageCompressFormat.jpg,
+        compressQuality: 85,
+
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Profile Photo',
+            toolbarColor: const Color(0xFF1B75BB),
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            hideBottomControls: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop Profile Photo',
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+            aspectRatioPickerButtonHidden: true,
+          ),
+        ],
+      );
+
+      if (croppedFile == null) {
+        debugPrint("CROP CANCELLED");
+        return null;
+      }
+
+      debugPrint("CROP SUCCESS => ${croppedFile.path}");
+
+      return XFile(croppedFile.path);
+    } catch (e, stackTrace) {
+      debugPrint("CROP ERROR => $e");
+      debugPrint("CROP STACK => $stackTrace");
+
+      if (mounted) {
+        Messenger.show(
+          context,
+          "Unable to crop the image. Please try another photo.",
+          type: MessageType.error,
+        );
+      }
+
+      return null;
+    }
   }
 }

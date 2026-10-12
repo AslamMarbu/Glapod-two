@@ -17,6 +17,7 @@ class ActivateContinuePage extends StatefulWidget {
 class _ActivateContinuePageState extends State<ActivateContinuePage> {
   bool isLoading = false;
   TextEditingController codeController = TextEditingController();
+  TextEditingController serialController = TextEditingController();
   bool isUserRegistered = false;
   bool isLicenseExpired = false;
 
@@ -61,38 +62,30 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
 
   /// FLOW STEP 1: Call API to verify key and get the popup message
   Future<void> _handleInitialCheck() async {
-    final String code = codeController.text.trim();
-    if (code.isEmpty) {
+    final String serialNumber = serialController.text.trim();
+    final String activationKey = codeController.text.trim();
+
+    if (serialNumber.isEmpty) {
       Messenger.show(
         context,
-        'Please enter purchase code',
+        'Please enter serial number',
         type: MessageType.error,
       );
       return;
     }
 
-    setState(() => isLoading = true);
-
-    try {
-      String device = await DeviceService.getDeviceId();
-      final result = await AuthService.enterPurchaseKey(
-        key: code,
-        deviceId: device,
+    if (activationKey.isEmpty) {
+      Messenger.show(
+        context,
+        'Please enter activation key',
+        type: MessageType.error,
       );
-
-      setState(() => isLoading = false);
-
-      if (result['success'] == true) {
-        // Step 1 Success: Show the popup with the message from the API
-        _showConfirmationDialog(result['message']);
-      } else {
-        // Step 1 Fail: Show error message
-        Messenger.show(context, result['message'], type: MessageType.error);
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-      Messenger.show(context, "Connection error", type: MessageType.error);
+      return;
     }
+
+    _showConfirmationDialog(
+      'Are you sure you want to activate your EdMaster subscription?',
+    );
   }
 
   /// THE POPUP UI: Displays message and handles Step 2 confirmation
@@ -100,100 +93,115 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
+      builder: (dialogContext) {
+        return Dialog(
           backgroundColor: Colors.transparent,
-          contentPadding: EdgeInsets.zero,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          content: Container(
-            width: double.maxFinite,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 420),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: const Color.fromARGB(255, 249, 116, 22),
-                width: 2,
-              ), // Green Border
+              borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.10),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xfff16704),
-                      Color.fromARGB(255, 249, 116, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFF8A24), Color(0xFFF16704)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF16704).withOpacity(0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  ),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Colors.white,
+                    size: 36,
                   ),
                 ),
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "Confirm Activation",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: Color(0xfff16704),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      apiMessage,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                        height: 1.5,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: GradientButton(
-                        text: 'Yes, Continue',
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xfff16704),
-                            Color.fromARGB(255, 249, 116, 22),
-                          ],
-                        ),
-                        onPressed: () {
-                          Navigator.pop(context); // Close Popup
-                          _handleFinalActivation(); // Start Step 2
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 14, 14, 14),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Confirm Activation',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF202124),
+                  ),
                 ),
-              ),
+
+                const SizedBox(height: 10),
+
+                Text(
+                  apiMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.55,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: GradientButton(
+                    text: 'Yes, Activate',
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF16704), Color(0xFFFF8A24)],
+                    ),
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      _handleFinalActivation();
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -206,16 +214,24 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
     setState(() => isLoading = true);
 
     try {
-      String device = await DeviceService.getDeviceId();
+      // Automatically fetch device information
+      final String device = await DeviceService.getDeviceId();
+
       final result = await AuthService.activatePurchaseKey(
-        key: codeController.text.trim(),
+        activationKey: codeController.text.trim(),
+        serialNumber: serialController.text.trim(),
         deviceId: device,
       );
 
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
 
       if (result['success'] == true) {
         await LocalStorageService.saveLicenseStatus(true);
+
+        if (!mounted) return;
+
         Messenger.show(context, result['message'], type: MessageType.success);
 
         Navigator.pushReplacement(
@@ -225,17 +241,23 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
           ),
         );
       } else {
+        if (!mounted) return;
+
         Messenger.show(context, result['message'], type: MessageType.error);
       }
     } catch (e) {
-      setState(() => isLoading = false);
-      Messenger.show(context, "Activation failed", type: MessageType.error);
+      if (mounted) {
+        setState(() => isLoading = false);
+
+        Messenger.show(context, "Activation failed", type: MessageType.error);
+      }
     }
   }
 
   @override
   void dispose() {
     codeController.dispose();
+    serialController.dispose();
     super.dispose();
   }
 
@@ -302,10 +324,22 @@ class _ActivateContinuePageState extends State<ActivateContinuePage> {
                           ),
                           const SizedBox(height: 20),
                           TextField(
+                            controller: serialController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: const InputDecoration(
+                              hintText: 'Enter serial number',
+                              hintStyle: TextStyle(color: Colors.white70),
+                              border: InputBorder.none,
+                            ),
+                          ),
+
+                          const Divider(color: Colors.white54, thickness: 1),
+
+                          TextField(
                             controller: codeController,
                             style: const TextStyle(color: Colors.white),
                             decoration: const InputDecoration(
-                              hintText: 'Enter purchase code',
+                              hintText: 'Enter activation key',
                               hintStyle: TextStyle(color: Colors.white70),
                               border: InputBorder.none,
                             ),

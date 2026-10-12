@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -17,6 +18,8 @@ class LocalStorageService {
   static const String _keyIsLoggedIn = "is_logged_in";
   static const String _keyTrialDays = "remaining_trial_days";
   static const String _keyIsActivated = "is_activated";
+  static const String _keyProfileImagePath = "profile_image_path";
+  static const String _keyProfileImageUrl = "profile_image_url";
 
   static Future<void> saveUserSession({
     required String token,
@@ -104,14 +107,47 @@ class LocalStorageService {
     }
   }
 
+  static Future<String?> getProfileImagePath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyProfileImagePath);
+  }
+
+  static Future<void> saveProfileImagePath(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(_keyProfileImagePath, path);
+  }
+
+  static Future<void> clearProfileImageCache() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final path = prefs.getString(_keyProfileImagePath);
+
+    if (path != null && path.isNotEmpty) {
+      try {
+        final file = File(path);
+
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        print('DELETE PROFILE CACHE ERROR: $e');
+      }
+    }
+
+    await prefs.remove(_keyProfileImagePath);
+  }
+
   static Future<void> logOut() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove(_keyToken);
     await prefs.remove(_keyStudent);
     await prefs.remove(_keyIsLoggedIn);
     await prefs.remove(_keyTrialDays);
     await prefs.remove(_keyIsActivated);
+
+    await clearProfileImageCache();
   }
 
   static Future<bool> isUserLoggedIn() async {

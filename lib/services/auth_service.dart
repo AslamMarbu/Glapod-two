@@ -134,10 +134,12 @@ class AuthService {
 
   // STEP 2: Finalize Activation
   static Future<Map<String, dynamic>> activatePurchaseKey({
-    required String key,
+    required String activationKey,
+    required String serialNumber,
     required String deviceId,
   }) async {
     final url = Uri.parse('$baseUrl/api/activate-purchase-key');
+
     final String? token = await LocalStorageService.getToken();
 
     try {
@@ -148,13 +150,18 @@ class AuthService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({"purchase_key": key, "device_info": deviceId}),
+        body: jsonEncode({
+          "activation_key": activationKey,
+          "serialnumber": serialNumber,
+          "device_info": deviceId,
+        }),
       );
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
+
       return {
         "success": responseData['status'] == true,
-        "message": responseData['message'] ?? "Activation Successful",
+        "message": responseData['message'] ?? "Activation failed",
       };
     } catch (e) {
       return {"success": false, "message": "Activation failed"};

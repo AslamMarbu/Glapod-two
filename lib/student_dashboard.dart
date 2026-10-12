@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:Edmaster/study_subject_listing.dart';
@@ -7,13 +9,16 @@ import 'package:Edmaster/translator_page.dart';
 import 'package:Edmaster/english_master/english_master.dart';
 import 'package:Edmaster/profile.dart';
 import 'package:Edmaster/storage/local_storage_service.dart';
+import 'package:Edmaster/services/student_service.dart';
 import 'package:Edmaster/utils/app_colors.dart';
 import 'widgets.dart/gradient_button.dart';
 import 'widgets.dart/appbar_page.dart';
 import 'package:Edmaster/daily_quiz.dart';
-import 'package:Edmaster/gk_master/gk_master.dart';
+import 'package:Edmaster/quizz_master/gk_master.dart';
+import 'package:Edmaster/gk_master/gk_master_page.dart';
 import 'games_zone.dart';
 import 'package:Edmaster/med_master/med_master.dart';
+import 'package:Edmaster/services/profile_image_cache_service.dart';
 
 class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
@@ -25,6 +30,8 @@ class StudentDashboardPage extends StatefulWidget {
 class _StudentDashboardPageState extends State<StudentDashboardPage> {
   String userName = "User";
   String? profileImageUrl;
+  String? localProfileImagePath;
+  File? localProfileImage;
   bool isLoading = true;
 
   @override
@@ -36,48 +43,162 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
   Future<void> _loadUserName() async {
     if (!mounted) return;
 
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+    });
 
     try {
+      // Refresh profile data from the server after login so the saved
+      // image URL is available even when the local cache was cleared on logout.
+      await StudentService.syncStudentProfile();
+
       final studentData = await LocalStorageService.getStudent();
 
-      if (studentData != null && mounted) {
-        setState(() {
-          userName =
-              (studentData['name'] != null &&
-                  studentData['name'].toString().isNotEmpty)
-              ? studentData['name'].toString()
-              : "User";
+      if (studentData == null) {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+        }
 
-          profileImageUrl =
-              (studentData['image'] != null &&
-                  studentData['image'].toString().isNotEmpty)
-              ? studentData['image'].toString()
-              : null;
+        return;
+      }
+
+      final String? imageUrl =
+          studentData['image'] != null &&
+              studentData['image'].toString().isNotEmpty
+          ? studentData['image'].toString()
+          : (studentData['profile_photo_url'] != null &&
+                    studentData['profile_photo_url'].toString().isNotEmpty
+                ? studentData['profile_photo_url'].toString()
+                : null);
+
+      // ---------------------------------------------------------
+      // SHOW DASHBOARD IMMEDIATELY
+      // ---------------------------------------------------------
+      if (mounted) {
+        setState(() {
+          userName = studentData['name']?.toString() ?? 'User';
+
+          profileImageUrl = imageUrl;
 
           isLoading = false;
         });
+      }
 
-        debugPrint("DASHBOARD IMAGE => $profileImageUrl");
+      // ---------------------------------------------------------
+      // LOAD LOCAL IMAGE WITHOUT BLOCKING DASHBOARD
+      // ---------------------------------------------------------
+      _loadCachedProfileImage();
 
-        if (studentData['class_id'] == null ||
-            studentData['class_id'].toString().isEmpty) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfilePage()),
-          ).then((_) => _loadUserName());
-        }
-      } else {
-        if (mounted) {
-          setState(() => isLoading = false);
+      // ---------------------------------------------------------
+      // DOWNLOAD ONLY IF LOCAL CACHE DOESN'T EXIST
+      // ---------------------------------------------------------
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        _updateProfileImageInBackground(imageUrl);
+      }
+
+      // ---------------------------------------------------------
+      // PROFILE COMPLETION CHECK
+      // ---------------------------------------------------------
+      if (studentData['class_id'] == null ||
+          studentData['class_id'].toString().isEmpty) {
+        if (!mounted) return;
+
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfilePage()),
+        );
+
+        // If ProfilePage changed something,
+        // reload dashboard immediately.
+        if (result == true && mounted) {
+          await _refreshProfileImageImmediately();
         }
       }
     } catch (e) {
-      debugPrint("Error loading student data: $e");
+      debugPrint("LOAD USER ERROR => $e");
 
       if (mounted) {
-        setState(() => isLoading = false);
+        setState(() {
+          isLoading = false;
+        });
       }
+    }
+  }
+
+  Future<void> _loadCachedProfileImage() async {
+    try {
+      final File? localImage = await ProfileImageCacheService.getLocalImage();
+
+      if (!mounted || localImage == null) {
+        return;
+      }
+
+      setState(() {
+        localProfileImage = localImage;
+        localProfileImagePath = localImage.path;
+      });
+    } catch (e) {
+      debugPrint("LOAD CACHED PROFILE IMAGE ERROR => $e");
+    }
+  }
+
+  Future<void> _refreshProfileImageImmediately() async {
+    try {
+      final File? localImage = await ProfileImageCacheService.getLocalImage();
+
+      if (!mounted) return;
+
+      if (localImage != null) {
+        setState(() {
+          localProfileImage = localImage;
+          localProfileImagePath = localImage.path;
+        });
+      }
+
+      // Also refresh student information.
+      final studentData = await LocalStorageService.getStudent();
+
+      if (!mounted || studentData == null) {
+        return;
+      }
+
+      final String? imageUrl =
+          studentData['image'] != null &&
+              studentData['image'].toString().isNotEmpty
+          ? studentData['image'].toString()
+          : (studentData['profile_photo_url'] != null &&
+                    studentData['profile_photo_url'].toString().isNotEmpty
+                ? studentData['profile_photo_url'].toString()
+                : null);
+
+      setState(() {
+        userName = studentData['name']?.toString() ?? userName;
+
+        profileImageUrl = imageUrl;
+      });
+    } catch (e) {
+      debugPrint("REFRESH PROFILE IMAGE ERROR => $e");
+    }
+  }
+
+  Future<void> _updateProfileImageInBackground(String imageUrl) async {
+    try {
+      // Refresh the cache from the server URL. The cached file may be stale
+      // (for example, after changing the profile photo or switching accounts).
+      final file = await ProfileImageCacheService.downloadAndCache(imageUrl);
+
+      if (!mounted || file == null) {
+        return;
+      }
+
+      setState(() {
+        localProfileImage = file;
+        localProfileImagePath = file.path;
+      });
+    } catch (e) {
+      debugPrint('PROFILE IMAGE BACKGROUND ERROR: $e');
     }
   }
 
@@ -249,49 +370,28 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                       ),
                       Row(
                         children: [
-                          // ... rest of your code for stars and profile items stays identical
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF4D6),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Color(0xFFF5C542),
-                                width: 1,
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.star_rounded,
-                                  color: Colors.amber,
-                                  size: 12,
-                                ),
-                                SizedBox(width: 2),
-                                Text(
-                                  "1250",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                           const SizedBox(width: 8),
                           GestureDetector(
-                            onTap: () {
-                              Navigator.push(
+                            onTap: () async {
+                              final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => const ProfilePage(),
                                 ),
-                              ).then((_) => _loadUserName());
+                              );
+
+                              if (!mounted) return;
+
+                              if (result != null && result is String) {
+                                final newImageFile = File(result);
+
+                                if (await newImageFile.exists()) {
+                                  setState(() {
+                                    localProfileImage = newImageFile;
+                                    localProfileImagePath = newImageFile.path;
+                                  });
+                                }
+                              }
                             },
                             child: Container(
                               padding: const EdgeInsets.all(2),
@@ -306,19 +406,29 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                                 radius: screenWidth > 600 ? 22 : 18,
                                 backgroundColor: Colors.grey.shade200,
 
-                                backgroundImage:
-                                    profileImageUrl != null &&
-                                        profileImageUrl!.isNotEmpty
-                                    ? NetworkImage(profileImageUrl!)
-                                    : null,
+                                backgroundImage: localProfileImage != null
+                                    ? ResizeImage(
+                                        FileImage(localProfileImage!),
+                                        width: 120,
+                                        height: 120,
+                                      )
+                                    : (profileImageUrl != null &&
+                                              profileImageUrl!.isNotEmpty
+                                          ? ResizeImage(
+                                              NetworkImage(profileImageUrl!),
+                                              width: 120,
+                                              height: 120,
+                                            )
+                                          : null),
 
                                 child:
-                                    profileImageUrl == null ||
-                                        profileImageUrl!.isEmpty
+                                    (localProfileImage == null &&
+                                        (profileImageUrl == null ||
+                                            profileImageUrl!.isEmpty))
                                     ? Icon(
                                         Icons.person,
-                                        color: Colors.black87,
-                                        size: screenWidth > 600 ? 22 : 18,
+                                        size: screenWidth > 600 ? 24 : 20,
+                                        color: Colors.grey,
                                       )
                                     : null,
                               ),
@@ -477,7 +587,23 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const GKMasterPage(),
+                                  builder: (_) => const QuizzMasterPage(),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // GK MASTER
+                          _dashboardCard(
+                            title: "GK Master",
+                            subtitle: "General Knowledge",
+                            imagePath: "assets/images/dashboard/gkmaster.png",
+                            color: const Color(0xFF3F51B5),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const GKMasterHomePage(),
                                 ),
                               );
                             },

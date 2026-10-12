@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../providers/med_master_provider.dart';
 import '../pdf_view_page.dart';
@@ -121,67 +122,144 @@ class _MedMasterPageState extends State<MedMasterPage> {
           appBar: const CustomAppBar(height: 70, title: 'Med Master'),
           body: provider.isFetchingList
               ? const Center(child: CircularProgressIndicator())
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.medMasterList.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1,
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = provider.medMasterList[index];
-
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => _handleCategoryTap(provider, item),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFE2EAE3)),
-                          boxShadow: const [
-                            BoxShadow(
-                              blurRadius: 10,
-                              color: Colors.black12,
-                              offset: Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _getCategoryIcon(index),
-                              size: 52,
-                              color: const Color(0xFF00ACC1),
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
+              : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20),
+                          ...List.generate(provider.medMasterList.length, (
+                            index,
+                          ) {
+                            final item = provider.medMasterList[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildImageMenuCard(
+                                title: (item['name'] ?? '').toString(),
+                                imageUrl: (item['image'] ?? '').toString(),
+                                icon: _getCategoryIcon(index),
+                                onTap: () => _handleCategoryTap(provider, item),
                               ),
-                              child: Text(
-                                (item['name'] ?? '').toString(),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF263238),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                            );
+                          }),
+                          const SizedBox(height: 24),
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
         );
       },
+    );
+  }
+
+  Widget _buildImageMenuCard({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+    String imageUrl = '',
+  }) {
+    const accentColor = Color(0xFF00ACC1);
+    final hasImage = imageUrl.isNotEmpty && imageUrl != 'null';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFDF0),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: accentColor.withOpacity(0.35), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.13),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(icon, size: 28, color: accentColor),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: accentColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: hasImage
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: const Color(0xFFE5F8FA),
+                            alignment: Alignment.center,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          errorWidget: (context, url, error) =>
+                              _buildIconImageFallback(icon),
+                        )
+                      : _buildIconImageFallback(icon),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconImageFallback(IconData icon) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFE5F8FA),
+      alignment: Alignment.center,
+      child: Icon(icon, size: 64, color: const Color(0xFF00ACC1)),
     );
   }
 }
