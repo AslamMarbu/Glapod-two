@@ -204,109 +204,6 @@ class _GkQuizPageState extends State<GkQuizPage> {
     );
   }
 
-  Widget _quizProgressHeader(GkProvider provider) {
-    final int currentNumber = provider.currentQuestionIndex + 1;
-    final int totalQuestions = provider.questions.length;
-
-    final double progress = totalQuestions > 0
-        ? currentNumber / totalQuestions
-        : 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE7E7F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0EDFF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  provider.selectedLevel?.toUpperCase() ?? '',
-                  style: const TextStyle(
-                    color: _accentColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.7,
-                  ),
-                ),
-              ),
-
-              const Spacer(),
-
-              Text(
-                '$currentNumber / $totalQuestions',
-                style: const TextStyle(
-                  color: _secondaryText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Text(
-                'Question $currentNumber',
-                style: const TextStyle(
-                  color: _primaryText,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-
-              const Spacer(),
-
-              Text(
-                '${(progress * 100).round()}%',
-                style: const TextStyle(
-                  color: _accentColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 9),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: const Color(0xFFE9E7F8),
-              valueColor: const AlwaysStoppedAnimation<Color>(_accentColor),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _questionCard(GkProvider provider, String question) {
     return Container(
       width: double.infinity,
@@ -599,41 +496,23 @@ class _GkQuizPageState extends State<GkQuizPage> {
           child: ElevatedButton(
             onPressed: !isAnswered || provider.isSubmitting
                 ? null
-                : () async {
-                    if (provider.isLastQuestion) {
-                      final result = await provider.submitQuiz();
+                : () {
+                    // Always move to the next question.
+                    // The provider automatically loops back to
+                    // Question 1 after the last question.
+                    provider.nextQuestion();
 
-                      if (!context.mounted) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!_scrollController.hasClients) {
                         return;
                       }
 
-                      if (result != null) {
-                        _showResultDialog(context, result);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              provider.errorMessage ??
-                                  'Quiz submission failed.',
-                            ),
-                          ),
-                        );
-                      }
-                    } else {
-                      provider.nextQuestion();
-
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!_scrollController.hasClients) {
-                          return;
-                        }
-
-                        _scrollController.animateTo(
-                          0,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                        );
-                      });
-                    }
+                      _scrollController.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    });
                   },
             style: ElevatedButton.styleFrom(
               backgroundColor: _accentColor,
@@ -645,39 +524,21 @@ class _GkQuizPageState extends State<GkQuizPage> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: provider.isSubmitting
-                ? const SizedBox(
-                    width: 23,
-                    height: 23,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white,
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        !isAnswered
-                            ? 'Select an Answer'
-                            : provider.isLastQuestion
-                            ? 'Finish Quiz'
-                            : 'Next Question',
-                        style: _buttonTextStyle,
-                      ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  !isAnswered ? 'Select an Answer' : 'Next Question',
+                  style: _buttonTextStyle,
+                ),
 
-                      if (isAnswered) ...[
-                        const SizedBox(width: 9),
+                if (isAnswered) ...[
+                  const SizedBox(width: 9),
 
-                        Icon(
-                          provider.isLastQuestion
-                              ? Icons.done_all_rounded
-                              : Icons.arrow_forward_rounded,
-                          size: 22,
-                        ),
-                      ],
-                    ],
-                  ),
+                  const Icon(Icons.arrow_forward_rounded, size: 22),
+                ],
+              ],
+            ),
           ),
         ),
       ),

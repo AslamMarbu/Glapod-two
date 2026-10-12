@@ -5,8 +5,10 @@ import '../providers/prediction_provider.dart';
 import '../utils/app_colors.dart';
 import 'widgets.dart/appbar_page.dart';
 import 'prediction_name_page.dart';
+import 'dart:async';
 import 'prediction_tense_page.dart';
 import 'prediction_opposit_word.dart';
+import 'prediction_synonym_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ShimmerPlaceholder extends StatelessWidget {
@@ -48,6 +50,8 @@ class PredictionPage extends StatefulWidget {
 class _PredictionPageState extends State<PredictionPage> {
   late PageController _sliderController;
 
+  Timer? _autoSlideTimer;
+
   int _currentSliderIndex = 0;
 
   int _sliderBasePage = 10000;
@@ -57,6 +61,8 @@ class _PredictionPageState extends State<PredictionPage> {
   @override
   void initState() {
     super.initState();
+
+    _startAutoSlide();
 
     _sliderController = PageController(
       viewportFraction: 1.0,
@@ -72,6 +78,7 @@ class _PredictionPageState extends State<PredictionPage> {
     final provider = context.read<PredictionProvider>();
 
     await provider.fetchCategories();
+    await provider.fetchWordMasterPages();
 
     if (!mounted || provider.categories.isEmpty) {
       return;
@@ -142,9 +149,42 @@ class _PredictionPageState extends State<PredictionPage> {
     await Future.wait(cacheTasks);
   }
 
+  String _normalizeWordMasterPageName(String name) {
+    return name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  Widget _buildWordMasterImage(
+    String pageName,
+    IconData fallbackIcon,
+    Color fallbackColor,
+  ) {
+    final imageUrl = context.read<PredictionProvider>().imageForPage(pageName);
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return Icon(fallbackIcon, size: 40, color: fallbackColor);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: 56,
+        height: 56,
+        fit: BoxFit.cover,
+        placeholder: (context, url) =>
+            const ShimmerPlaceholder(width: 56, height: 56, borderRadius: 14),
+        errorWidget: (context, url, error) {
+          debugPrint('Word Master image failed: $url, $error');
+          return Icon(fallbackIcon, size: 40, color: fallbackColor);
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _sliderController.dispose();
+    _autoSlideTimer?.cancel();
     super.dispose();
   }
 
@@ -161,6 +201,23 @@ class _PredictionPageState extends State<PredictionPage> {
         ),
       ),
     );
+  }
+
+  void _startAutoSlide() {
+    _autoSlideTimer?.cancel();
+
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+
+      if (!_sliderController.hasClients) {
+        return;
+      }
+
+      _sliderController.nextPage(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   void _navToTense(String level) {
@@ -180,6 +237,15 @@ class _PredictionPageState extends State<PredictionPage> {
       MaterialPageRoute(
         builder: (_) => PredictionOppositePage(level: apiLevel),
       ),
+    );
+  }
+
+  void _navToSynonym(String level) {
+    final apiLevel = context.read<PredictionProvider>().mapToApi(level);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PredictionSynonymPage(level: apiLevel)),
     );
   }
 
@@ -234,17 +300,14 @@ class _PredictionPageState extends State<PredictionPage> {
                                       )
                                     : _buildGuessNameExpandableCard(pp),
                                 const SizedBox(height: 16),
-                                _buildFeatureRowCard(
+                                _buildWordMasterImageCard(
                                   title: "Verb Forms",
                                   description:
                                       "Select a level to start learning!",
                                   backgroundColor: const Color(0xFFFFFDF0),
-                                  arrowColor: const Color(0xFFFFC107),
-                                  avatarWidget: const Icon(
-                                    Icons.edit_road_rounded,
-                                    size: 40,
-                                    color: Color(0xFFFFB300),
-                                  ),
+                                  accentColor: const Color(0xFFFFC107),
+                                  fallbackIcon: Icons.edit_road_rounded,
+                                  fallbackColor: const Color(0xFFFFB300),
                                   isLoading: pp.isLoading,
                                   onTap: () => _showLevelBottomSheet(
                                     "Verb Forms",
@@ -253,22 +316,35 @@ class _PredictionPageState extends State<PredictionPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                _buildFeatureRowCard(
+                                _buildWordMasterImageCard(
                                   title: "Antonyms",
                                   description:
                                       "Select a level to start learning!",
                                   backgroundColor: const Color(0xFFE8F8F5),
-                                  arrowColor: const Color(0xFF2ECC71),
-                                  avatarWidget: const Icon(
-                                    Icons.saved_search_rounded,
-                                    size: 40,
-                                    color: Color(0xFF27AE60),
-                                  ),
+                                  accentColor: const Color(0xFF2ECC71),
+                                  fallbackIcon: Icons.sync_alt_rounded,
+                                  fallbackColor: const Color(0xFF27AE60),
                                   isLoading: pp.isLoading,
                                   onTap: () => _showLevelBottomSheet(
                                     "Antonyms",
                                     pp,
                                     (lvl) => _navToOpposite(lvl),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                _buildWordMasterImageCard(
+                                  title: "Synonyms",
+                                  description:
+                                      "Select a level to start learning!",
+                                  backgroundColor: const Color(0xFFFFE8E8),
+                                  accentColor: const Color(0xFFAD4444),
+                                  fallbackIcon: Icons.find_replace_rounded,
+                                  fallbackColor: const Color(0xFFAD4444),
+                                  isLoading: pp.isLoading,
+                                  onTap: () => _showLevelBottomSheet(
+                                    "Synonyms",
+                                    pp,
+                                    (lvl) => _navToSynonym(lvl),
                                   ),
                                 ),
                                 const SizedBox(height: 40),
@@ -612,6 +688,141 @@ class _PredictionPageState extends State<PredictionPage> {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 20, color: const Color(0xFF1E293B)),
+      ),
+    );
+  }
+
+  // Single-image cards use the same header and large rounded image layout
+  // as Name Hunt, while retaining each card's existing navigation.
+  Widget _buildWordMasterImageCard({
+    required String title,
+    required String description,
+    required Color backgroundColor,
+    required Color accentColor,
+    required IconData fallbackIcon,
+    required Color fallbackColor,
+    required bool isLoading,
+    required VoidCallback onTap,
+  }) {
+    if (isLoading) {
+      return const ShimmerPlaceholder(
+        width: double.infinity,
+        height: 220,
+        borderRadius: 28,
+      );
+    }
+
+    final imageUrl = context.read<PredictionProvider>().imageForPage(title);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: accentColor.withOpacity(0.35), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.13),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(fallbackIcon, size: 28, color: fallbackColor),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          description,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildRoundActionCircle(
+                    color: Colors.white,
+                    iconColor: accentColor,
+                    onTap: onTap,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          memCacheWidth: 900,
+                          fadeInDuration: const Duration(milliseconds: 80),
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: const Color(0xFFE8E5F5),
+                            highlightColor: const Color(0xFFF8F7FF),
+                            child: Container(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: accentColor.withOpacity(0.08),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              fallbackIcon,
+                              size: 44,
+                              color: fallbackColor,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: accentColor.withOpacity(0.08),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            fallbackIcon,
+                            size: 44,
+                            color: fallbackColor,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

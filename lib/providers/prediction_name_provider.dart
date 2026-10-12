@@ -24,8 +24,6 @@ class PredictionGameProvider with ChangeNotifier {
     _hasNoData = false;
     notifyListeners();
 
-    // If the grid somehow sends null/empty data,
-    // treat it as no question available.
     if (questionData == null) {
       _currentResponse = null;
       _isCompleted = false;
@@ -68,7 +66,6 @@ class PredictionGameProvider with ChangeNotifier {
 
       // ---------------------------------------------------------
       // 1. QUIZ COMPLETED
-      // This is NOT "No Questions"
       // ---------------------------------------------------------
       if (response['completed'] == true ||
           response['completed'].toString() == 'true') {
@@ -102,8 +99,9 @@ class PredictionGameProvider with ChangeNotifier {
         return;
       }
 
-      // Unknown/API error:
-      // do NOT call it "No Questions".
+      // ---------------------------------------------------------
+      // 4. UNKNOWN/API ERROR
+      // ---------------------------------------------------------
       _hasNoData = false;
       _isCompleted = false;
     } catch (e) {
@@ -111,7 +109,6 @@ class PredictionGameProvider with ChangeNotifier {
 
       _currentResponse = null;
 
-      // Network/server errors are NOT no-data.
       _hasNoData = false;
       _isCompleted = false;
     } finally {

@@ -21,6 +21,7 @@ import 'providers/prediction_provider.dart';
 import 'providers/prediction_name_provider.dart';
 import 'providers/prediction_tense_provider.dart';
 import 'providers/prediction_opposite_provider.dart';
+import 'providers/prediction_synonym_provider.dart';
 import 'providers/sample_paper_provider.dart';
 import 'providers/textbook_provider.dart';
 import 'providers/questions_year_wise_lprovider.dart';
@@ -30,6 +31,7 @@ import 'providers/spelling_quiz_provider.dart';
 import 'providers/daily_quiz_provider.dart';
 import 'providers/gk_master_provider.dart';
 import 'providers/med_master_provider.dart';
+import 'providers/gk_master_visual_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +80,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PredictionTenseProvider()),
         ChangeNotifierProvider(create: (_) => SolvedPaperSetProvider()),
         ChangeNotifierProvider(create: (_) => PredictionOppositeProvider()),
+        ChangeNotifierProvider(create: (_) => PredictionSynonymProvider()),
         ChangeNotifierProvider(create: (_) => SamplePaperProvider()),
         ChangeNotifierProvider(create: (_) => TextbookProvider()),
         ChangeNotifierProvider(create: (_) => YearwiseQPaperProvider()),
@@ -85,6 +88,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SpellingQuizProvider()),
         ChangeNotifierProvider(create: (_) => DailyQuizProvider()),
         ChangeNotifierProvider(create: (_) => MedMasterProvider()),
+        ChangeNotifierProvider(create: (_) => GKMasterProvider()),
       ],
       child: MyApp(initialPage: startPage, isLoggedIn: isLoggedIn),
     ),

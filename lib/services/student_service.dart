@@ -676,6 +676,46 @@ class StudentService {
     }
   }
 
+  // 4. Synonyms Question
+  // 4. Synonyms Question
+  static Future<Map<String, dynamic>> fetchSynonymQuestion(
+    String level, {
+    String? status,
+  }) async {
+    try {
+      final token = await LocalStorageService.getToken();
+
+      Map<String, dynamic> params = {'level': level};
+
+      if (status != null) {
+        params['status'] = status;
+      }
+
+      Response response = await _dio.get(
+        "$baseUrl/api/prediction/synonyms",
+        queryParameters: params,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      debugPrint("SYNONYM API RESPONSE: ${response.data}");
+
+      return response.data;
+    } catch (e) {
+      debugPrint("SYNONYM API ERROR: $e");
+
+      return {
+        "status": false,
+        "message": "Connection error: Please check your internet.",
+        "completed": false,
+      };
+    }
+  }
+
   static Future<Map<String, dynamic>> fetchNotifications() async {
     try {
       final token = await LocalStorageService.getToken();
@@ -807,5 +847,120 @@ class StudentService {
     }
 
     throw Exception('Failed to fetch Med Master categories.');
+  }
+
+  // ============================================================
+  // GK MASTER - CATEGORIES
+  // ============================================================
+
+  static Future<List<dynamic>> fetchGKMasterCategories() async {
+    try {
+      final token = await LocalStorageService.getToken();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/gk-master/categories'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint('GK Master Categories Status: ${response.statusCode}');
+
+      debugPrint('GK Master Categories Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+
+        if (decoded is Map<String, dynamic>) {
+          final dynamic categories = decoded['categories'];
+
+          if (categories is List) {
+            return categories;
+          }
+        }
+
+        return [];
+      }
+
+      throw Exception(
+        'Failed to load GK Master categories. '
+        'Status: ${response.statusCode}',
+      );
+    } catch (e) {
+      debugPrint('GK Master Categories Error: $e');
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // GK MASTER - CATEGORY IMAGES
+  // ============================================================
+
+  static Future<Map<String, dynamic>> fetchGKMasterCategoryContents(
+    dynamic categoryId,
+  ) async {
+    try {
+      final token = await LocalStorageService.getToken();
+
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/api/gk-master/categories/${categoryId.toString()}/images',
+        ),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint('GK Master Images Status: ${response.statusCode}');
+
+      debugPrint('GK Master Images Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+
+        return {'status': false, 'message': 'Invalid response format.'};
+      }
+
+      try {
+        final dynamic decoded = jsonDecode(response.body);
+
+        if (decoded is Map<String, dynamic>) {
+          return {
+            'status': false,
+            'message':
+                decoded['message']?.toString() ??
+                'Server error: ${response.statusCode}',
+          };
+        }
+      } catch (_) {}
+
+      return {
+        'status': false,
+        'message': 'Server error: ${response.statusCode}',
+      };
+    } catch (e) {
+      debugPrint('GK Master Images Error: $e');
+
+      return {'status': false, 'message': 'Connection error: $e'};
+    }
+  }
+
+  static Future<List<dynamic>> fetchWordMasterPages() async {
+    final response = await DioClient.instance.get('/api/word-master-pages');
+
+    final data = response.data;
+
+    if (response.statusCode == 200 && data['status'] == true) {
+      return List<dynamic>.from(data['pages'] ?? []);
+    }
+
+    return [];
   }
 }

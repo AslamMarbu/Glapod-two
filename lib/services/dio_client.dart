@@ -107,6 +107,7 @@ class DioClient {
     final String path = options.path.toLowerCase();
 
     return path.contains('/api/study/get-subjects') ||
+        path.contains('/api/study/videos') ||
         path.contains('/api/game-zone/spelling-quiz') ||
         path.contains('/api/daily-quiz') ||
         path.contains('/api/gk-master') ||
