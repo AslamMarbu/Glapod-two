@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart'; // 🔹 Import Shimmer
+import 'package:shimmer/shimmer.dart';
+
 import '../providers/prediction_name_provider.dart';
 import '../services/student_service.dart';
 import 'widgets.dart/appbar_page.dart';
@@ -38,12 +39,14 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
       _errorMessage = null;
     });
 
-    final response = await StudentService.getGuessNameQuestionGrid(
-      categoryId: widget.categoryId,
-      level: widget.level,
-    );
+    try {
+      final response = await StudentService.getGuessNameQuestionGrid(
+        categoryId: widget.categoryId,
+        level: widget.level,
+      );
 
-    if (mounted) {
+      if (!mounted) return;
+
       if (response['status'] == true) {
         setState(() {
           _questions = response['data'] ?? [];
@@ -51,24 +54,44 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
         });
       } else {
         setState(() {
-          _errorMessage = response['message'] ?? "Failed to load grid";
+          _errorMessage = response['message'] ?? 'Failed to load grid';
           _isLoading = false;
         });
       }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Failed to load images. Please try again.';
+        _isLoading = false;
+      });
     }
+  }
+
+  // Get the image name from the API response.
+  String _getImageName(dynamic item) {
+    if (item is! Map) return '';
+
+    for (final key in const ['name', 'answer', 'title', 'question']) {
+      final value = item[key]?.toString().trim() ?? '';
+
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+
+    return '';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFF),
-
       appBar: CustomAppBar(
         height: 70,
-        title: "${widget.categoryName} - Grid",
+        title: '${widget.categoryName} - Grid',
         isDashboard: false,
       ),
-
       body: _isLoading
           ? _buildShimmerGrid()
           : _errorMessage != null
@@ -77,21 +100,20 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
     );
   }
 
-  // 🔹 NEW: SHIMMER SKELETON GRID
   Widget _buildShimmerGrid() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
       highlightColor: Colors.grey[100]!,
       child: GridView.builder(
         padding: const EdgeInsets.all(20),
-        physics: const NeverScrollableScrollPhysics(), // Keep it static
+        physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 15,
           mainAxisSpacing: 15,
           childAspectRatio: 1,
         ),
-        itemCount: 15, // Show a reasonable number of placeholder boxes
+        itemCount: 15,
         itemBuilder: (context, index) {
           return Container(
             decoration: BoxDecoration(
@@ -106,7 +128,7 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
 
   Widget _buildGridView() {
     if (_questions.isEmpty) {
-      return const Center(child: Text("No questions found for this level."));
+      return const Center(child: Text('No questions found for this level.'));
     }
 
     return GridView.builder(
@@ -120,15 +142,24 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
       itemCount: _questions.length,
       itemBuilder: (context, index) {
         final item = _questions[index];
-        final bool isAttended = item['is_attended'] ?? false;
+
+        final bool isAttended = item is Map
+            ? item['is_attended'] == true
+            : false;
+
+        final dynamic rawImages = item is Map ? item['images'] : null;
+
         final String? imageUrl =
-            item['images'] != null && item['images'].isNotEmpty
-            ? item['images'][0]
+            rawImages is List && rawImages.isNotEmpty && rawImages[0] != null
+            ? rawImages[0].toString()
             : null;
+
+        final String imageName = _getImageName(item);
 
         return GestureDetector(
           onTap: () {
             context.read<PredictionGameProvider>().setManualQuestion(item);
+
             Navigator.pop(context);
           },
           child: Container(
@@ -154,41 +185,53 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Image
                   if (imageUrl != null && imageUrl.isNotEmpty)
                     Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, color: Colors.grey),
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.broken_image,
+                          color: Colors.grey,
+                        );
+                      },
                     )
                   else
                     const Icon(Icons.image, color: Colors.grey),
 
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.only(
-                          bottomRight: Radius.circular(8),
+                  // Image name instead of the image number.
+                  if (imageName.isNotEmpty)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 5,
                         ),
-                      ),
-                      child: Text(
-                        "${index + 1}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.only(
+                            bottomRight: Radius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          imageName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
+                  // Attended indicator
                   if (isAttended)
                     Positioned(
                       bottom: 4,
@@ -217,14 +260,17 @@ class _PredictionNameGridPageState extends State<PredictionNameGridPage> {
 
   Widget _buildErrorView() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 40),
-          const SizedBox(height: 10),
-          Text(_errorMessage!, textAlign: TextAlign.center),
-          TextButton(onPressed: _fetchGridData, child: const Text("Retry")),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 40),
+            const SizedBox(height: 10),
+            Text(_errorMessage!, textAlign: TextAlign.center),
+            TextButton(onPressed: _fetchGridData, child: const Text('Retry')),
+          ],
+        ),
       ),
     );
   }

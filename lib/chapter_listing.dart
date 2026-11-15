@@ -18,11 +18,30 @@ class SubjectDetailPage extends StatelessWidget {
   // Modern theme colors
   final List<Color> themeColors = const [
     Color(0xFF4F46E5), // Indigo
-    Color(0xFF10B981), // Emerald Green
-    Color(0xFFF43F5E), // Rose Pink
+    Color(0xFF10B981), // Emerald
+    Color(0xFFF43F5E), // Rose
     Color(0xFF8B5CF6), // Purple
     Color(0xFF06B6D4), // Cyan
-    Color(0xFFF59E0B), // Amber Orange
+    Color(0xFFF59E0B), // Amber
+    Color(0xFF3B82F6), // Blue
+    Color(0xFFEC4899), // Pink
+    Color(0xFF14B8A6), // Teal
+    Color(0xFFEF4444), // Red
+    Color(0xFF84CC16), // Lime
+    Color(0xFFA855F7), // Violet
+    Color(0xFFF97316), // Orange
+    Color(0xFF0EA5E9), // Sky Blue
+    Color(0xFF22C55E), // Green
+    Color(0xFFD946EF), // Fuchsia
+    Color(0xFF6366F1), // Indigo Light
+    Color(0xFF0891B2), // Dark Cyan
+    Color(0xFFCA8A04), // Yellow
+    Color(0xFFDB2777), // Dark Pink
+    Color(0xFF059669), // Dark Emerald
+    Color(0xFF7C3AED), // Deep Purple
+    Color(0xFFEA580C), // Deep Orange
+    Color(0xFF2563EB), // Royal Blue
+    Color(0xFF65A30D), // Olive Green
   ];
 
   const SubjectDetailPage({
@@ -141,20 +160,37 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
             setState(() {
               _isExpanded = expanded;
             });
+
+            // Scroll to the expanded chapter only
+            if (expanded) {
+              Future.delayed(const Duration(milliseconds: 300), () {
+                if (!mounted) return;
+
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                );
+              });
+            }
           },
 
-          trailing: AnimatedRotation(
-            turns: _isExpanded ? 0.5 : 0,
-            duration: const Duration(milliseconds: 250),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: _isExpanded
-                  ? widget.activeColor
-                  : Colors.grey.shade100,
-              child: Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: _isExpanded ? Colors.white : Colors.grey.shade600,
-                size: 22,
+          trailing: SizedBox(
+            width: 38,
+            child: AnimatedRotation(
+              turns: _isExpanded ? 0.5 : 0,
+              duration: const Duration(milliseconds: 250),
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: _isExpanded
+                    ? widget.activeColor
+                    : Colors.grey.shade100,
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: _isExpanded ? Colors.white : Colors.grey.shade600,
+                  size: 22,
+                ),
               ),
             ),
           ),
@@ -172,18 +208,26 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
             ),
           ),
 
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
 
-          title: Text(
-            (widget.chapter['title'] ?? "Untitled Chapter").toString(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
-              letterSpacing: .1,
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  (widget.chapter['title'] ?? "Untitled Chapter").toString(),
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                    height: 1.3,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
+            ],
           ),
 
           children: [
@@ -281,17 +325,6 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                                       ),
                                     ),
                                   ),
-
-                                  const SizedBox(width: 12),
-
-                                  Text(
-                                    "65%",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: widget.activeColor,
-                                    ),
-                                  ),
                                 ],
                               ),
                             ],
@@ -354,7 +387,7 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                             _buildActionCard(
                               context,
                               icon: Icons.edit_note_rounded,
-                              label: "Read Notes",
+                              label: "Chapter Notes",
                               description: "Quick summary",
                               accentColor: const Color(0xFF3B82F6),
                               onTap: () => Navigator.push(
@@ -499,12 +532,14 @@ class _ChapterAccordionItemState extends State<ChapterAccordionItem> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _isOpeningTextbook ? "Opening..." : "Textbook",
-                    maxLines: 1,
+                    _isOpeningTextbook ? "Opening..." : "NCERT Textbook",
+                    maxLines: 2,
+                    softWrap: true,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13.5,
+                      height: 1.15,
                       color: Color(0xFF8B5CF6),
                     ),
                   ),

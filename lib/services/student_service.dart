@@ -677,7 +677,6 @@ class StudentService {
   }
 
   // 4. Synonyms Question
-  // 4. Synonyms Question
   static Future<Map<String, dynamic>> fetchSynonymQuestion(
     String level, {
     String? status,
@@ -962,5 +961,142 @@ class StudentService {
     }
 
     return [];
+  }
+
+  static Future<Map<String, dynamic>> fetchAntonyms({
+    String search = '',
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    final token = await LocalStorageService.getToken();
+
+    final uri = Uri.parse('$baseUrl/api/english-master/antonyms').replace(
+      queryParameters: {
+        'search': search,
+        'page': page.toString(),
+        'per_page': perPage.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map<String, dynamic> && decoded['status'] == true) {
+        return decoded;
+      }
+
+      throw Exception(decoded is Map ? decoded['message'] : 'Invalid response');
+    }
+
+    throw Exception('Failed to fetch antonyms: ${response.statusCode}');
+  }
+
+  static Future<Map<String, dynamic>> fetchSynonyms({
+    String search = '',
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    final token = await LocalStorageService.getToken();
+
+    final uri = Uri.parse('$baseUrl/api/english-master/synonyms').replace(
+      queryParameters: {
+        'search': search,
+        'page': page.toString(),
+        'per_page': perPage.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map<String, dynamic> && decoded['status'] == true) {
+        return decoded;
+      }
+
+      throw Exception(decoded is Map ? decoded['message'] : 'Invalid response');
+    }
+
+    throw Exception('Failed to fetch synonyms: ${response.statusCode}');
+  }
+
+  static Future<Map<String, dynamic>> fetchWordFamilies({
+    int page = 1,
+    int perPage = 50,
+    String search = '',
+  }) async {
+    try {
+      final response = await DioClient.instance.get(
+        '/api/english-master/word-families',
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+          if (search.trim().isNotEmpty) 'search': search.trim(),
+        },
+      );
+
+      final data = response.data;
+
+      if (response.statusCode == 200 && data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+
+      return {
+        'status': false,
+        'message': 'Failed to load Word Families.',
+        'data': [],
+      };
+    } catch (e) {
+      debugPrint('Fetch Word Families error: $e');
+
+      return {
+        'status': false,
+        'message': 'Unable to connect to the server.',
+        'data': [],
+      };
+    }
+  }
+
+  // ============================================================
+  // ENGLISH MASTER - VERB FORMS (PAGINATED + SEARCH)
+  // ============================================================
+  static Future<Response<dynamic>> fetchEnglishMasterVerbForms({
+    int page = 1,
+    int perPage = 50,
+    String search = '',
+  }) async {
+    final token = await LocalStorageService.getToken();
+    if (token == null || token.trim().isEmpty) {
+      throw Exception('Login token not found. Please log in again.');
+    }
+
+    final response = await _dio.get<dynamic>(
+      '$baseUrl/api/english-master/verb-forms',
+      queryParameters: {
+        'page': page,
+        'per_page': perPage,
+        if (search.trim().isNotEmpty) 'search': search.trim(),
+      },
+      options: Options(
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${token.trim()}',
+        },
+        responseType: ResponseType.json,
+      ),
+    );
+
+    debugPrint('English Master Verb Forms status: ${response.statusCode}');
+    debugPrint('English Master Verb Forms body: ${response.data}');
+    return response;
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -20,21 +21,36 @@ class _StudyState extends State<Study> {
 
   String _className = "";
 
-  final Map<String, Color> _subjectColors = {
-    "Physics": const Color(0xFF2962FF), // Royal Blue
-    "Chemistry": const Color(0xFFE91E63), // Emerald Green
-    "Biology": const Color(0xFF43A047), // Leaf Green
-    "Mathematics": const Color(0xFF00BCD4), // Cyan
-    "History": const Color(0xFF7B1FA2), // Deep Purple
-    "Geography": const Color(0xFFF06801), // Brand Orange
-    "Economics": const Color(0xFF00C853), // Pink
-    "Political Science": const Color(0xFF3F51B5), // Indigo
-    "Political Science/Civics": const Color(0xFF3F51B5),
-    "Civics": const Color(0xFF3F51B5),
-    "English": const Color(0xFFD32F2F), // Crimson Red
-    "Hindi": const Color(0xFFFFB300), // Amber
-    "Sanskrit": const Color(0xFF8E244D), // Maroon
-  };
+  final Map<String, GlobalKey> _subjectKeys = {};
+  final List<Color> _colorPalette = [
+    const Color(0xFF4F46E5),
+    const Color(0xFF10B981),
+    const Color(0xFFF43F5E),
+    const Color(0xFF8B5CF6),
+    const Color(0xFF06B6D4),
+    const Color(0xFFF59E0B),
+    const Color(0xFF3B82F6),
+    const Color(0xFFEC4899),
+    const Color(0xFF14B8A6),
+    const Color(0xFFEF4444),
+    const Color(0xFF84CC16),
+    const Color(0xFFA855F7),
+    const Color(0xFFF97316),
+    const Color(0xFF0EA5E9),
+    const Color(0xFF22C55E),
+    const Color(0xFFD946EF),
+    const Color(0xFF6366F1),
+    const Color(0xFF0891B2),
+    const Color(0xFFCA8A04),
+    const Color(0xFFDB2777),
+    const Color(0xFF059669),
+    const Color(0xFF7C3AED),
+    const Color(0xFFEA580C),
+    const Color(0xFF2563EB),
+    const Color(0xFF65A30D),
+  ];
+
+  final Map<String, Color> _subjectColors = {};
 
   final Map<String, int> _subjectOrder = {
     "Physics": 1,
@@ -57,7 +73,6 @@ class _StudyState extends State<Study> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Load student class name
       final student = await LocalStorageService.getStudent();
 
       if (mounted && student != null) {
@@ -66,8 +81,18 @@ class _StudyState extends State<Study> {
         });
       }
 
-      // Load subjects
       await context.read<StudyProvider>().loadSubjects();
+
+      if (mounted) {
+        setState(() {
+          _subjectColors.clear();
+          _assignSubjectColors(
+            List<Map<String, dynamic>>.from(
+              context.read<StudyProvider>().subjects,
+            ),
+          );
+        });
+      }
     });
   }
 
@@ -101,13 +126,22 @@ class _StudyState extends State<Study> {
       ),
       body: AppRefreshWrapper(
         onRefresh: () async {
-          // Close any expanded subject card.a
           setState(() {
             _expandedIndex = -1;
           });
 
-          // Fetch the subjects again from the API.
           await context.read<StudyProvider>().loadSubjects();
+
+          if (mounted) {
+            setState(() {
+              _subjectColors.clear();
+              _assignSubjectColors(
+                List<Map<String, dynamic>>.from(
+                  context.read<StudyProvider>().subjects,
+                ),
+              );
+            });
+          }
         },
         child: studyProvider.isLoading
             ? _buildShimmerLoading(screenHeight)
@@ -136,6 +170,10 @@ class _StudyState extends State<Study> {
                       : [];
 
                   return SubjectCard(
+                    key: _subjectKeys.putIfAbsent(
+                      item['id'].toString(),
+                      () => GlobalKey(),
+                    ),
                     subjectId: item['id'].toString(),
                     subjectName: subjectName,
                     imageUrl: item['image_url'],
@@ -160,6 +198,23 @@ class _StudyState extends State<Study> {
                       setState(() {
                         _expandedIndex = isExpanded ? index : -1;
                       });
+
+                      if (isExpanded) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          final cardContext =
+                              _subjectKeys[item['id'].toString()]
+                                  ?.currentContext;
+
+                          if (cardContext != null) {
+                            Scrollable.ensureVisible(
+                              cardContext,
+                              alignment: 0.5,
+                              duration: const Duration(milliseconds: 450),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        });
+                      }
                     },
                     onNavigateToChapters: () {
                       setState(() {
@@ -171,6 +226,19 @@ class _StudyState extends State<Study> {
               ),
       ),
     );
+  }
+
+  void _assignSubjectColors(List<Map<String, dynamic>> subjects) {
+    final colors = List<Color>.from(_colorPalette);
+    colors.shuffle(Random());
+
+    for (int i = 0; i < subjects.length; i++) {
+      final name = (subjects[i]['subject'] ?? '').toString().trim();
+
+      if (name.isNotEmpty && !_subjectColors.containsKey(name)) {
+        _subjectColors[name] = colors[i % colors.length];
+      }
+    }
   }
 
   Widget _buildShimmerLoading(double screenHeight) {

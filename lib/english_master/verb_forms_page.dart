@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:Edmaster/services/student_service.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class VerbFormsPage extends StatefulWidget {
   const VerbFormsPage({super.key});
@@ -17,12 +19,8 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
   // API
   // ===========================================================================
 
-  static const String _apiUrl =
-      'https://edmaster.in/api/english-master/verb-forms';
-
-  static const int _perPage = 50;
-
-  final Dio _dio = Dio();
+  static const int _perPage = 100;
+  static const String _cacheKey = 'english_master_verb_forms_cache_v1';
 
   // ===========================================================================
   // SEARCH / SCROLL
@@ -58,7 +56,8 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
 
   String _errorMessage = '';
 
-  bool _requestInProgress = false;
+  int _requestId = 0;
+  bool _backgroundDownloadRunning = false;
 
   // ===========================================================================
   // INIT
@@ -68,37 +67,7 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
   void initState() {
     super.initState();
 
-    _scrollController.addListener(_onScroll);
-
     _loadFirstPage();
-  }
-
-  // ===========================================================================
-  // TOKEN
-  // ===========================================================================
-
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getString('token') ??
-        prefs.getString('access_token') ??
-        prefs.getString('auth_token');
-  }
-
-  // ===========================================================================
-  // API OPTIONS
-  // ===========================================================================
-
-  Future<Options> _requestOptions() async {
-    final token = await _getToken();
-
-    final headers = <String, dynamic>{'Accept': 'application/json'};
-
-    if (token != null && token.trim().isNotEmpty) {
-      headers['Authorization'] = 'Bearer ${token.trim()}';
-    }
-
-    return Options(headers: headers, responseType: ResponseType.json);
   }
 
   // ===========================================================================
@@ -106,64 +75,261 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
   // ===========================================================================
 
   Future<void> _loadFirstPage() async {
-    if (_requestInProgress) {
-      return;
+    if (!mounted) return;
+
+    final int requestId = ++_requestId;
+    final String search = _searchController.text.trim();
+    final bool useCache = search.isEmpty;
+    bool displayedCachedData = false;
+
+    // Show previously downloaded complete data immediately on a normal open.
+    if (useCache) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cachedJson = prefs.getString(_cacheKey);
+        if (cachedJson != null && cachedJson.isNotEmpty) {
+          final dynamic decoded = jsonDecode(cachedJson);
+          if (decoded is List) {
+            final cached = decoded
+                .whereType<Map>()
+                .map(
+                  (item) => <String, String>{
+                    'v1': item['v1']?.toString() ?? '',
+                    'v2': item['v2']?.toString() ?? '',
+                    'v3': item['v3']?.toString() ?? '',
+                    'v4': item['v4']?.toString() ?? '',
+                    'v5': item['v5']?.toString() ?? '',
+                  },
+                )
+                .toList();
+            if (mounted && requestId == _requestId && cached.isNotEmpty) {
+              setState(() {
+                _verbs
+                  ..clear()
+                  ..addAll(cached);
+                _isLoading = false;
+                _isLoadingMore = false;
+                _hasError = false;
+                _errorMessage = '';
+              });
+              displayedCachedData = true;
+              debugPrint('VERB CACHE: displayed ${cached.length} cached rows');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('VERB CACHE READ ERROR: $e');
+      }
     }
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted || requestId != _requestId) return;
 
     setState(() {
-      _isLoading = true;
+      _isLoading = !displayedCachedData;
+      _isLoadingMore = false;
       _hasError = false;
       _errorMessage = '';
+      // Avoid showing results for the previous search while a new search loads.
+      if (search.isNotEmpty) _verbs.clear();
     });
 
     try {
-      _requestInProgress = true;
+      debugPrint('VERB API: Loading first batch of $_perPage');
+      debugPrint('VERB SEARCH: $search');
 
-      debugPrint('========================================');
-      debugPrint('VERB API: Loading first page');
-      debugPrint('VERB API URL: $_apiUrl');
-      debugPrint('VERB SEARCH: ${_searchController.text.trim()}');
-
-      final response = await _dio.get(
-        _apiUrl,
-        queryParameters: {
-          'page': 1,
-          'per_page': _perPage,
-          if (_searchController.text.trim().isNotEmpty)
-            'search': _searchController.text.trim(),
-        },
-        options: await _requestOptions(),
+      final response = await StudentService.fetchEnglishMasterVerbForms(
+        page: 1,
+        perPage: _perPage,
+        search: search,
       );
 
-      debugPrint('VERB API STATUS: ${response.statusCode}');
+      if (!mounted || requestId != _requestId) return;
 
-      debugPrint('VERB API RESPONSE: ${response.data}');
+      final List<Map<String, String>> firstPageRecords;
+      final int lastPage;
+      final bool replaceVisibleDataAtCompletion = displayedCachedData;
 
-      debugPrint('========================================');
-
-      _handleResponse(response, replaceData: true);
-    } on DioException catch (e) {
-      debugPrint('VERB API DIO ERROR: $e');
-
-      _handleDioError(e);
-    } catch (e, stackTrace) {
-      debugPrint('VERB API ERROR: $e');
-
-      debugPrint('VERB API STACKTRACE: $stackTrace');
-
-      _handleError(e.toString());
-    } finally {
-      _requestInProgress = false;
+      if (displayedCachedData) {
+        // Keep the complete cached table visible while fresh records download.
+        firstPageRecords = _parseVerbResponse(response);
+        lastPage = _readLastPageFromResponse(response);
+      } else {
+        _handleResponse(response, replaceData: true);
+        firstPageRecords = List<Map<String, String>>.from(_verbs);
+        lastPage = _lastPage;
+      }
 
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isLoadingMore = lastPage > 1;
+          _hasError = false;
+          _errorMessage = '';
         });
       }
+
+      await _downloadRemainingPages(
+        requestId: requestId,
+        search: search,
+        lastPage: lastPage,
+        firstPageRecords: firstPageRecords,
+        cacheWhenComplete: useCache,
+        replaceVisibleDataAtCompletion: replaceVisibleDataAtCompletion,
+      );
+    } on DioException catch (e) {
+      debugPrint('VERB API DIO ERROR: $e');
+      if (!mounted || requestId != _requestId) return;
+      if (_verbs.isEmpty) {
+        _handleDioError(e);
+      } else {
+        debugPrint(
+          'VERB API: Keeping currently displayed rows after refresh error.',
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('VERB API ERROR: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted || requestId != _requestId) return;
+      if (_verbs.isEmpty) {
+        _handleError(e.toString());
+      }
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() {
+          _isLoading = false;
+          if (!_backgroundDownloadRunning) _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadRemainingPages({
+    required int requestId,
+    required String search,
+    required int lastPage,
+    required List<Map<String, String>> firstPageRecords,
+    required bool cacheWhenComplete,
+    required bool replaceVisibleDataAtCompletion,
+  }) async {
+    if (lastPage <= 1 || !mounted || requestId != _requestId) {
+      if (mounted &&
+          requestId == _requestId &&
+          replaceVisibleDataAtCompletion) {
+        setState(() {
+          _verbs
+            ..clear()
+            ..addAll(firstPageRecords);
+        });
+      }
+      if (cacheWhenComplete && requestId == _requestId) {
+        await _saveVerbCache(firstPageRecords);
+      }
+      if (mounted && requestId == _requestId) {
+        setState(() => _isLoadingMore = false);
+      }
+      return;
+    }
+
+    _backgroundDownloadRunning = true;
+    final List<Map<String, String>> allRecords = List<Map<String, String>>.from(
+      firstPageRecords,
+    );
+
+    try {
+      for (int page = 2; page <= lastPage; page++) {
+        if (!mounted || requestId != _requestId) return;
+
+        final response = await StudentService.fetchEnglishMasterVerbForms(
+          page: page,
+          perPage: _perPage,
+          search: search,
+        );
+
+        if (!mounted || requestId != _requestId) return;
+
+        final pageRecords = _parseVerbResponse(response);
+        if (pageRecords.isEmpty) continue;
+
+        allRecords.addAll(pageRecords);
+        if (!replaceVisibleDataAtCompletion) {
+          setState(() {
+            // Append each new batch while the student uses the table.
+            _verbs.addAll(pageRecords);
+            _currentPage = page;
+            _isLoadingMore = page < lastPage;
+          });
+        } else if (mounted && requestId == _requestId) {
+          setState(() => _isLoadingMore = page < lastPage);
+        }
+
+        debugPrint(
+          'VERB BACKGROUND: loaded page $page/$lastPage; total ${allRecords.length}',
+        );
+      }
+
+      if (mounted &&
+          requestId == _requestId &&
+          replaceVisibleDataAtCompletion) {
+        setState(() {
+          _verbs
+            ..clear()
+            ..addAll(allRecords);
+        });
+      }
+
+      if (cacheWhenComplete && mounted && requestId == _requestId) {
+        await _saveVerbCache(allRecords);
+      }
+    } on DioException catch (e) {
+      debugPrint('VERB BACKGROUND DOWNLOAD ERROR: $e');
+      // Keep already downloaded rows visible. A later refresh can retry.
+    } catch (e, stackTrace) {
+      debugPrint('VERB BACKGROUND DOWNLOAD ERROR: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      _backgroundDownloadRunning = false;
+      if (mounted && requestId == _requestId) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
+  }
+
+  int _readLastPageFromResponse(Response response) {
+    final dynamic body = response.data;
+    if (body is Map && body['pagination'] is Map) {
+      final dynamic value = (body['pagination'] as Map)['last_page'];
+      return _readInt(value, fallback: 1).clamp(1, 100000).toInt();
+    }
+    return 1;
+  }
+
+  List<Map<String, String>> _parseVerbResponse(Response response) {
+    final dynamic body = response.data;
+    if (body is! Map || body['success'] != true || body['data'] is! List) {
+      throw Exception('Invalid verb forms response.');
+    }
+
+    return (body['data'] as List)
+        .whereType<Map>()
+        .map(
+          (item) => <String, String>{
+            'v1': item['v1']?.toString() ?? '',
+            'v2': item['v2']?.toString() ?? '',
+            'v3': item['v3']?.toString() ?? '',
+            'v4': item['v4']?.toString() ?? '',
+            'v5': item['v5']?.toString() ?? '',
+          },
+        )
+        .toList();
+  }
+
+  Future<void> _saveVerbCache(List<Map<String, String>> records) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cacheKey, jsonEncode(records));
+      debugPrint('VERB CACHE: saved ${records.length} rows');
+    } catch (e) {
+      debugPrint('VERB CACHE SAVE ERROR: $e');
     }
   }
 
@@ -182,67 +348,8 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
   // LOAD NEXT PAGE
   // ===========================================================================
 
-  Future<void> _loadNextPage() async {
-    if (_requestInProgress ||
-        _isLoading ||
-        _isLoadingMore ||
-        _currentPage >= _lastPage) {
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isLoadingMore = true;
-      _hasError = false;
-    });
-
-    try {
-      _requestInProgress = true;
-
-      final nextPage = _currentPage + 1;
-
-      debugPrint('VERB API: Loading page $nextPage');
-
-      final response = await _dio.get(
-        _apiUrl,
-        queryParameters: {
-          'page': nextPage,
-          'per_page': _perPage,
-          if (_searchController.text.trim().isNotEmpty)
-            'search': _searchController.text.trim(),
-        },
-        options: await _requestOptions(),
-      );
-
-      debugPrint(
-        'VERB API PAGE $nextPage STATUS: '
-        '${response.statusCode}',
-      );
-
-      _handleResponse(response, replaceData: false);
-    } on DioException catch (e) {
-      debugPrint('VERB NEXT PAGE DIO ERROR: $e');
-
-      _handleDioError(e);
-    } catch (e, stackTrace) {
-      debugPrint('VERB NEXT PAGE ERROR: $e');
-
-      debugPrint('VERB NEXT PAGE STACKTRACE: $stackTrace');
-
-      _handleError(e.toString());
-    } finally {
-      _requestInProgress = false;
-
-      if (mounted) {
-        setState(() {
-          _isLoadingMore = false;
-        });
-      }
-    }
-  }
+  // All remaining pages are downloaded automatically in the background.
+  // No scroll-triggered pagination is needed.
 
   // ===========================================================================
   // SAFE INTEGER PARSER
@@ -394,6 +501,8 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
   // ===========================================================================
 
   void _onSearchChanged(String value) {
+    // Invalidate any in-flight page/background request immediately.
+    _requestId++;
     _searchDebounce?.cancel();
 
     _searchDebounce = Timer(const Duration(milliseconds: 450), () {
@@ -484,16 +593,7 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
   // ===========================================================================
 
   void _onScroll() {
-    if (!_scrollController.hasClients) {
-      return;
-    }
-
-    final position = _scrollController.position;
-
-    // Start loading before reaching bottom.
-    if (position.pixels >= position.maxScrollExtent - 400) {
-      _loadNextPage();
-    }
+    // Background download is started immediately after the first batch.
   }
 
   // ===========================================================================
@@ -1014,8 +1114,6 @@ class _VerbFormsPageState extends State<VerbFormsPage> {
     _scrollController.dispose();
 
     _horizontalScrollController.dispose();
-
-    _dio.close(force: true);
 
     // Return to portrait when leaving this page.
     SystemChrome.setPreferredOrientations([

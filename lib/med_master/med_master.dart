@@ -6,6 +6,7 @@ import '../providers/med_master_provider.dart';
 import '../pdf_view_page.dart';
 import '../widgets.dart/appbar_page.dart';
 import 'med_master_file_page.dart';
+import 'anatomy_atlas_page.dart';
 
 class MedMasterPage extends StatefulWidget {
   const MedMasterPage({super.key});
@@ -100,6 +101,20 @@ class _MedMasterPageState extends State<MedMasterPage> {
     MedMasterProvider provider,
     Map<String, dynamic> category,
   ) {
+    final String contentType = (category['content_type'] ?? 'pdf')
+        .toString()
+        .toLowerCase();
+
+    // Anatomy Atlas: open the image viewer directly.
+    if (contentType == 'image') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AnatomyAtlasPage(category: category)),
+      );
+      return;
+    }
+
+    // Existing PDF behavior remains unchanged.
     final dynamic singleFile = category['single_file'];
 
     if (singleFile is Map) {

@@ -147,7 +147,7 @@ class _SplashScreenState extends State<SplashScreen> {
               const SizedBox(height: 8),
 
               const Text(
-                "Learn • Practice • Achieve",
+                "Your Digital Knowledge Space",
                 style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
 

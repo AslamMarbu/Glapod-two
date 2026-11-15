@@ -13,7 +13,7 @@ import 'subscription_page.dart';
 import 'terms_condition_page.dart';
 import 'my_favourites_page.dart';
 import 'services/auth_service.dart';
-import 'package:image_cropper/image_cropper.dart';
+import 'custom_profile_crop_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final bool showSuccessMsg;
@@ -879,50 +879,44 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<XFile?> _cropProfileImage(XFile image) async {
     try {
-      debugPrint("CROP START => ${image.path}");
+      debugPrint("CUSTOM CROP START => ${image.path}");
 
-      final CroppedFile? croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
+      // Read the selected image.
+      final Uint8List originalBytes = await image.readAsBytes();
 
-        // Square profile image.
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      if (!mounted) return null;
 
-        // Keep profile image small and fast.
-        maxWidth: 512,
-        maxHeight: 512,
+      // Open our own Flutter crop screen.
+      final Uint8List? croppedBytes = await Navigator.of(context)
+          .push<Uint8List>(
+            MaterialPageRoute(
+              builder: (_) => CustomProfileCropPage(imageBytes: originalBytes),
+            ),
+          );
 
-        compressFormat: ImageCompressFormat.jpg,
-        compressQuality: 85,
-
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Crop Profile Photo',
-            toolbarColor: const Color(0xFF1B75BB),
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.square,
-            lockAspectRatio: true,
-            hideBottomControls: false,
-          ),
-          IOSUiSettings(
-            title: 'Crop Profile Photo',
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-            aspectRatioPickerButtonHidden: true,
-          ),
-        ],
-      );
-
-      if (croppedFile == null) {
-        debugPrint("CROP CANCELLED");
+      // User cancelled cropping.
+      if (croppedBytes == null) {
+        debugPrint("CUSTOM CROP CANCELLED");
         return null;
       }
 
-      debugPrint("CROP SUCCESS => ${croppedFile.path}");
+      // Save cropped bytes to a temporary file because the existing
+      // StudentService.updateProfile() expects an XFile.
+      final Directory tempDirectory = Directory.systemTemp;
+
+      final File croppedFile = File(
+        '${tempDirectory.path}/profile_crop_'
+        '${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+
+      await croppedFile.writeAsBytes(croppedBytes, flush: true);
+
+      debugPrint("CUSTOM CROP SUCCESS => ${croppedFile.path}");
 
       return XFile(croppedFile.path);
     } catch (e, stackTrace) {
-      debugPrint("CROP ERROR => $e");
-      debugPrint("CROP STACK => $stackTrace");
+      debugPrint("CUSTOM CROP ERROR => $e");
+      debugPrint("CUSTOM CROP STACK => $stackTrace");
 
       if (mounted) {
         Messenger.show(

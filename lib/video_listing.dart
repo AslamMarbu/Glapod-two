@@ -55,8 +55,18 @@ class VideoListingPage extends StatefulWidget {
 
 class _VideoListingPageState extends State<VideoListingPage> {
   YoutubePlayerController? _controller;
+
+  // Used only as the builder's hidden placeholder before a video is selected.
+  // It is created once, not on every build.
+  late final YoutubePlayerController _idleController;
+
   bool _isVideoSelected = false;
+  bool _isRetrying = false;
+  bool _errorHandled = false;
+  int _automaticRetryCount = 0;
+  int? _playbackErrorCode;
   String? _activeVideoTitle;
+  String? _activeVideoId;
 
   final List<Color> _subjectPalette = [
     const Color.fromARGB(255, 92, 95, 239),
@@ -68,8 +78,15 @@ class _VideoListingPageState extends State<VideoListingPage> {
   ];
 
   @override
+  @override
   void initState() {
     super.initState();
+
+    _idleController = YoutubePlayerController(
+      initialVideoId: '',
+      flags: const YoutubePlayerFlags(autoPlay: false),
+    );
+
     Future.microtask(
       () => context.read<VideoProvider>().initialFetch(widget.chapterId),
     );
@@ -77,30 +94,157 @@ class _VideoListingPageState extends State<VideoListingPage> {
 
   void _onVideoSelected(String url, String? title, int index) {
     final id = YoutubePlayer.convertUrlToId(url);
-    if (id != null) {
-      setState(() {
-        _activeVideoTitle = title ?? "Video ${index + 1}";
-        _isVideoSelected = true;
 
-        if (_controller == null) {
-          _controller =
-              YoutubePlayerController(
-                initialVideoId: id,
-                flags: const YoutubePlayerFlags(autoPlay: true),
-              )..addListener(() {
-                if (mounted) setState(() {});
-              });
-        } else {
-          _controller!.load(id);
-        }
+    if (id == null || id.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid video link.')));
+      return;
+    }
+
+    _automaticRetryCount = 0;
+    _activeVideoId = id;
+    _activeVideoTitle = title ?? 'Video ${index + 1}';
+    _playbackErrorCode = null;
+    _isRetrying = false;
+    _isVideoSelected = true;
+
+    _createVideoController(id);
+  }
+
+  void _createVideoController(String videoId) {
+    _controller?.removeListener(_onControllerChanged);
+    _controller?.dispose();
+
+    _errorHandled = false;
+
+    final newController = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+    );
+
+    _controller = newController;
+    newController.addListener(_onControllerChanged);
+
+    if (mounted) {
+      setState(() {
+        _isVideoSelected = true;
+        _playbackErrorCode = null;
       });
     }
+  }
+
+  void _onControllerChanged() {
+    final currentController = _controller;
+    if (!mounted || currentController == null || _errorHandled) return;
+
+    // youtube_player_flutter 9.1.2+ exposes the YouTube IFrame error code.
+    final errorCode = currentController.value.errorCode;
+    if (errorCode == 0) return;
+
+    _errorHandled = true;
+
+    debugPrint('EdMaster YouTube player error: $errorCode');
+
+    if (_automaticRetryCount < 1 && _activeVideoId != null) {
+      _automaticRetryCount++;
+
+      setState(() {
+        _isRetrying = true;
+        _playbackErrorCode = null;
+      });
+
+      // Recreate the embedded player once. Do not retry continuously.
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted || _activeVideoId == null) return;
+        _createVideoController(_activeVideoId!);
+        setState(() => _isRetrying = false);
+      });
+    } else {
+      setState(() {
+        _isRetrying = false;
+        _playbackErrorCode = errorCode;
+      });
+    }
+  }
+
+  void _retryVideoManually() {
+    final videoId = _activeVideoId;
+    if (videoId == null) return;
+
+    _automaticRetryCount = 0;
+    _playbackErrorCode = null;
+    _isRetrying = true;
+
+    _createVideoController(videoId);
+
+    setState(() => _isRetrying = false);
+  }
+
+  Widget _buildPlaybackError() {
+    final code = _playbackErrorCode;
+
+    String message;
+    if (code == 150 || code == 101) {
+      message =
+          'YouTube is currently preventing this video from playing inside the app on this device.';
+    } else if (code == 153) {
+      message =
+          'The video player could not complete its playback request. Please try again.';
+    } else {
+      message = 'This video could not be played right now. Please try again.';
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.white,
+            size: 42,
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Unable to play video',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Error code: ${code ?? "Unknown"}',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _retryVideoManually,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try again'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    _controller?.removeListener(_onControllerChanged);
     _controller?.dispose();
+    _idleController.dispose();
     super.dispose();
   }
 
@@ -116,7 +260,7 @@ class _VideoListingPageState extends State<VideoListingPage> {
       onExitFullScreen: () =>
           SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
       player: YoutubePlayer(
-        controller: _controller ?? YoutubePlayerController(initialVideoId: ""),
+        controller: _controller ?? _idleController,
         showVideoProgressIndicator: true,
       ),
       builder: (context, player) {
@@ -145,7 +289,31 @@ class _VideoListingPageState extends State<VideoListingPage> {
                     if (_isVideoSelected && _controller != null)
                       Column(
                         children: [
-                          player,
+                          if (_isRetrying)
+                            Container(
+                              width: double.infinity,
+                              height: 210,
+                              color: Colors.black,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Reconnecting video...',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else if (_playbackErrorCode != null)
+                            _buildPlaybackError()
+                          else
+                            player,
                           if (!isFull)
                             Container(
                               padding: const EdgeInsets.all(12),

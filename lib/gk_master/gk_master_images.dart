@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter/material.dart';
@@ -10,11 +11,15 @@ import 'gk_master_image_grid.dart';
 class GKMasterImagesPage extends StatefulWidget {
   final dynamic categoryId;
   final String categoryName;
+  final int initialIndex;
+  final bool initialDataLoaded;
 
   const GKMasterImagesPage({
     super.key,
     required this.categoryId,
     required this.categoryName,
+    this.initialIndex = 0,
+    this.initialDataLoaded = false,
   });
 
   @override
@@ -57,13 +62,20 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
   void initState() {
     super.initState();
 
-    _pageController = PageController(initialPage: 1);
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex + 1);
 
-    Future.microtask(() {
-      if (!mounted) return;
+    // The home page can fetch the category data and preload its background
+    // before navigation. Avoid issuing the same API request again.
+    if (!widget.initialDataLoaded) {
+      Future.microtask(() {
+        if (!mounted) return;
 
-      context.read<GKMasterProvider>().loadCategoryContents(widget.categoryId);
-    });
+        context.read<GKMasterProvider>().loadCategoryContents(
+          widget.categoryId,
+        );
+      });
+    }
   }
 
   // ============================================================
@@ -286,6 +298,7 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
           categoryName: widget.categoryName,
           categoryImage: categoryImage,
           currentIndex: _currentIndex,
+          categoryId: widget.categoryId,
         ),
       ),
     );
@@ -305,7 +318,6 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
       ),
       child: Scaffold(
         backgroundColor: Colors.white,
-
         body: Consumer<GKMasterProvider>(
           builder: (context, provider, child) {
             // ==================================================
@@ -357,10 +369,17 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
             final dynamic rawCategory = data['category'];
 
             String categoryImage = '';
+            String backgroundImage = '';
 
             if (rawCategory is Map) {
               categoryImage = rawCategory['image']?.toString().trim() ?? '';
+              backgroundImage =
+                  rawCategory['background_image']?.toString().trim() ?? '';
             }
+
+            // Use the same full-screen layout previously used by
+            // World of Reptiles whenever the API provides a background.
+            final bool hasBackgroundImage = backgroundImage.isNotEmpty;
 
             // ==================================================
             // INITIAL PRELOAD
@@ -382,113 +401,164 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
               _currentIndex = contents.length - 1;
             }
 
-            return SafeArea(
-              top: false,
-              bottom: false,
-              child: Column(
-                children: [
-                  // ==================================================
-                  // APP BAR
-                  // ==================================================
-                  _buildAppBar(
-                    categoryImage: categoryImage,
-                    contents: contents,
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (hasBackgroundImage)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final screenWidth = constraints.maxWidth;
+                      final alignmentX = screenWidth < 400
+                          ? -1.0
+                          : screenWidth < 600
+                          ? -0.6
+                          : screenWidth < 900
+                          ? -0.2
+                          : 0.0;
+
+                      return CachedNetworkImage(
+                        imageUrl: backgroundImage,
+                        width: constraints.maxWidth,
+                        height: constraints.maxHeight,
+                        fit: BoxFit.cover,
+                        alignment: Alignment(alignmentX, 0),
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                        placeholder: (context, url) => const SizedBox.expand(),
+                        errorWidget: (context, url, error) {
+                          debugPrint(
+                            'GK MASTER BACKGROUND IMAGE ERROR: $error',
+                          );
+                          return const SizedBox.expand();
+                        },
+                      );
+                    },
                   ),
-
-                  // ==================================================
-                  // IMAGE AREA
-                  // ==================================================
-                  Expanded(
-                    child: Padding(
-                      // Keep a little spacing above the image, but remove
-                      // horizontal margins so the image uses the full width.
-                      padding: const EdgeInsets.only(top: 18),
-
-                      child: PageView.builder(
-                        controller: _pageController,
-
-                        // =================================================
-                        // IMPORTANT
-                        // =================================================
-                        //
-                        // SWIPE IS ENABLED.
-                        //
-                        // The PageView moves between images.
-                        //
-                        // InteractiveViewer itself has pan disabled,
-                        // so the image cannot be dragged independently.
-                        // =================================================
-                        physics: const BouncingScrollPhysics(),
-
-                        // Extra first/last pages make swipe navigation wrap
-                        // seamlessly in both directions.
-                        itemCount: contents.length + 2,
-
-                        onPageChanged: (pageIndex) {
-                          final int realIndex =
-                              (pageIndex - 1 + contents.length) %
-                              contents.length;
-
-                          _resetZoom();
-
-                          setState(() {
-                            _currentIndex = realIndex;
-                          });
-
-                          // When a sentinel page is reached, jump to its
-                          // matching real page without a visible animation.
-                          if (pageIndex == 0) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted && _pageController.hasClients) {
-                                _pageController.jumpToPage(contents.length);
-                              }
-                            });
-                          } else if (pageIndex == contents.length + 1) {
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (mounted && _pageController.hasClients) {
-                                _pageController.jumpToPage(1);
-                              }
-                            });
-                          }
-
-                          _preloadNearbyImages(contents, realIndex);
-                        },
-
-                        itemBuilder: (context, pageIndex) {
-                          final int index =
-                              (pageIndex - 1 + contents.length) %
-                              contents.length;
-                          final dynamic rawContent = contents[index];
-
-                          if (rawContent is! Map) {
-                            return const SizedBox();
-                          }
-
-                          final Map<String, dynamic> content =
-                              Map<String, dynamic>.from(rawContent);
-
-                          final String imageUrl =
-                              content['file_url']?.toString().trim() ?? '';
-
-                          if (imageUrl.isEmpty) {
-                            return _buildImageError();
-                          }
-
-                          return _buildFixedZoomImage(imageUrl);
-                        },
+                SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      // ==================================================
+                      // APP BAR
+                      // ==================================================
+                      _buildAppBar(
+                        categoryImage: categoryImage,
+                        contents: contents,
+                        hasBackgroundImage: hasBackgroundImage,
                       ),
-                    ),
-                  ),
 
-                  // ==================================================
-                  // BOTTOM CONTROLS
-                  // ==================================================
-                  _buildBottomControls(
-                    currentIndex: _currentIndex,
-                    totalImages: contents.length,
+                      // ==================================================
+                      // IMAGE AREA
+                      // ==================================================
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                top: hasBackgroundImage ? 0 : 18,
+                              ),
+                              child: SizedBox(
+                                width: constraints.maxWidth,
+                                height: constraints.maxHeight,
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: contents.length + 2,
+
+                                  onPageChanged: (pageIndex) {
+                                    final int realIndex =
+                                        (pageIndex - 1 + contents.length) %
+                                        contents.length;
+
+                                    _resetZoom();
+
+                                    setState(() {
+                                      _currentIndex = realIndex;
+                                    });
+
+                                    if (pageIndex == 0) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted &&
+                                                _pageController.hasClients) {
+                                              _pageController.jumpToPage(
+                                                contents.length,
+                                              );
+                                            }
+                                          });
+                                    } else if (pageIndex ==
+                                        contents.length + 1) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted &&
+                                                _pageController.hasClients) {
+                                              _pageController.jumpToPage(1);
+                                            }
+                                          });
+                                    }
+
+                                    _preloadNearbyImages(contents, realIndex);
+                                  },
+
+                                  itemBuilder: (context, pageIndex) {
+                                    final int index =
+                                        (pageIndex - 1 + contents.length) %
+                                        contents.length;
+
+                                    final dynamic rawContent = contents[index];
+
+                                    if (rawContent is! Map) {
+                                      return const SizedBox();
+                                    }
+
+                                    final Map<String, dynamic> content =
+                                        Map<String, dynamic>.from(rawContent);
+
+                                    final String imageUrl =
+                                        content['file_url']
+                                            ?.toString()
+                                            .trim() ??
+                                        '';
+
+                                    if (imageUrl.isEmpty) {
+                                      return _buildImageError();
+                                    }
+
+                                    // The transparent header takes space above the
+                                    // content image. Lift the poster slightly so its
+                                    // visual centre sits closer to the screen centre.
+                                    return Transform.translate(
+                                      offset: Offset(
+                                        0,
+                                        hasBackgroundImage ? -40 : 0,
+                                      ),
+                                      child: _buildFixedZoomImage(imageUrl),
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      // ==================================================
+                      // BOTTOM CONTROLS
+                      // ==================================================
+                      SafeArea(
+                        top: false,
+                        bottom: true,
+                        child: _buildBottomControls(
+                          currentIndex: _currentIndex,
+                          totalImages: contents.length,
+                          hasBackgroundImage: hasBackgroundImage,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),
@@ -501,6 +571,168 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
   // ============================================================
 
   Widget _buildAppBar({
+    required String categoryImage,
+    required List<dynamic> contents,
+    required bool hasBackgroundImage,
+  }) {
+    if (hasBackgroundImage) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          MediaQuery.of(context).padding.top + 12,
+          18,
+          12,
+        ),
+        child: Row(
+          children: [
+            // BACK BUTTON
+            _buildTransparentAppBarIcon(
+              icon: Icons.arrow_back,
+              onTap: () => Navigator.pop(context),
+            ),
+
+            const SizedBox(width: 12),
+
+            // GLASS CAPSULE TITLE
+            Expanded(
+              child: Container(
+                height: 64,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(34),
+                  border: Border.all(
+                    color: Colors.black.withOpacity(0.65),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.28),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.35),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // CATEGORY IMAGE
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.8),
+                                width: 2,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: categoryImage.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: categoryImage,
+                                    fit: BoxFit.cover,
+                                    fadeInDuration: Duration.zero,
+                                    fadeOutDuration: Duration.zero,
+                                    useOldImageOnUrlChange: true,
+                                    placeholder: (context, url) {
+                                      return const Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      );
+                                    },
+                                    errorWidget: (context, url, error) {
+                                      return const Icon(
+                                        Icons.image_outlined,
+                                        color: Color(0xFF777777),
+                                        size: 24,
+                                      );
+                                    },
+                                  )
+                                : const Icon(
+                                    Icons.image_outlined,
+                                    color: Color(0xFF777777),
+                                    size: 24,
+                                  ),
+                          ),
+
+                          const SizedBox(width: 7),
+
+                          // CATEGORY NAME
+                          Expanded(
+                            child: Text(
+                              widget.categoryName,
+                              maxLines: 2,
+                              softWrap: true,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                height: 1.05,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.25,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // GRID BUTTON
+            _buildTransparentAppBarIcon(
+              icon: Icons.grid_view_rounded,
+              onTap: () => _openGrid(contents, categoryImage),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _buildDefaultAppBar(
+      categoryImage: categoryImage,
+      contents: contents,
+    );
+  }
+
+  Widget _buildTransparentAppBarIcon({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(icon, color: Colors.white, size: 30),
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      splashRadius: 24,
+    );
+  }
+
+  // Existing header design for all other categories.
+  Widget _buildDefaultAppBar({
     required String categoryImage,
     required List<dynamic> contents,
   }) {
@@ -542,7 +774,7 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
               },
             ),
 
-            const SizedBox(width: 14),
+            const SizedBox(width: 8),
 
             // ==================================================
             // CATEGORY TITLE
@@ -550,112 +782,127 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
             Expanded(
               child: Container(
                 height: 64,
+                padding: const EdgeInsets.all(2),
 
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-
+                // Outer curved border
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.10),
-
+                  color: Colors.white.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(34),
-
-                  border: Border.all(color: Colors.white.withOpacity(0.12)),
-                ),
-
-                child: Row(
-                  children: [
-                    // ==================================================
-                    // CATEGORY IMAGE
-                    // ==================================================
-                    Container(
-                      width: 48,
-                      height: 48,
-
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-
-                        color: Colors.white,
-
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.8),
-
-                          width: 2,
-                        ),
-                      ),
-
-                      clipBehavior: Clip.antiAlias,
-
-                      child: categoryImage.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: categoryImage,
-
-                              fit: BoxFit.cover,
-
-                              fadeInDuration: Duration.zero,
-
-                              fadeOutDuration: Duration.zero,
-
-                              useOldImageOnUrlChange: true,
-
-                              placeholder: (context, url) {
-                                return Center(
-                                  child: Lottie.asset(
-                                    'assets/animations/loading_text.json',
-                                    width: 34,
-                                    height: 34,
-                                    fit: BoxFit.contain,
-                                  ),
-                                );
-                              },
-
-                              errorWidget: (context, url, error) {
-                                return const Icon(
-                                  Icons.image_outlined,
-
-                                  color: Color(0xFF777777),
-
-                                  size: 24,
-                                );
-                              },
-                            )
-                          : const Icon(
-                              Icons.image_outlined,
-
-                              color: Color(0xFF777777),
-
-                              size: 24,
-                            ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    // ==================================================
-                    // CATEGORY NAME
-                    // ==================================================
-                    Expanded(
-                      child: Text(
-                        widget.categoryName,
-
-                        maxLines: 1,
-
-                        overflow: TextOverflow.ellipsis,
-
-                        style: const TextStyle(
-                          color: Colors.white,
-
-                          fontSize: 20,
-
-                          fontWeight: FontWeight.w700,
-
-                          letterSpacing: -0.2,
-                        ),
-                      ),
+                  border: Border.all(
+                    color: Colors.black.withOpacity(0.65),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
+                ),
+
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.28),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.35),
+                          width: 1,
+                        ),
+                      ),
+
+                      child: Row(
+                        children: [
+                          // =========================================
+                          // CATEGORY IMAGE
+                          // =========================================
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.8),
+                                width: 2,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+
+                            child: categoryImage.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: categoryImage,
+                                    fit: BoxFit.cover,
+                                    fadeInDuration: Duration.zero,
+                                    fadeOutDuration: Duration.zero,
+                                    useOldImageOnUrlChange: true,
+
+                                    placeholder: (context, url) {
+                                      return Center(
+                                        child: Lottie.asset(
+                                          'assets/animations/loading_text.json',
+                                          width: 225,
+                                          height: 225,
+                                          fit: BoxFit.contain,
+                                        ),
+                                      );
+                                    },
+
+                                    errorWidget: (context, url, error) {
+                                      return const Icon(
+                                        Icons.image_outlined,
+                                        color: Color(0xFF777777),
+                                        size: 24,
+                                      );
+                                    },
+                                  )
+                                : const Icon(
+                                    Icons.image_outlined,
+                                    color: Color(0xFF777777),
+                                    size: 24,
+                                  ),
+                          ),
+
+                          const SizedBox(width: 7),
+
+                          // =========================================
+                          // CATEGORY NAME
+                          // =========================================
+                          Expanded(
+                            child: Text(
+                              widget.categoryName,
+                              maxLines: 2,
+                              softWrap: true,
+                              overflow: TextOverflow.visible,
+
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                height: 1.05,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.25,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(width: 14),
+            const SizedBox(width: 8),
 
             // ==================================================
             // GRID BUTTON
@@ -706,7 +953,7 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
           ],
         ),
 
-        child: Icon(icon, color: Colors.white, size: 23),
+        child: Icon(icon, color: Colors.white, size: 19),
       ),
     );
   }
@@ -716,80 +963,65 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
   // ============================================================
 
   Widget _buildFixedZoomImage(String imageUrl) {
-    return Center(
-      child: InteractiveViewer(
-        // ========================================================
-        // IMAGE CANNOT BE PANNED
-        // ========================================================
-        panEnabled: false,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        final double availableHeight = constraints.maxHeight;
 
-        // ========================================================
-        // ZOOM ENABLED
-        // ========================================================
-        scaleEnabled: true,
+        return Center(
+          child: InteractiveViewer(
+            panEnabled: false,
+            scaleEnabled: true,
+            minScale: 1.0,
+            maxScale: 4.0,
+            scaleFactor: 200.0,
+            transformationController: _transformationController,
+            boundaryMargin: EdgeInsets.zero,
+            constrained: true,
+            clipBehavior: Clip.none,
 
-        minScale: 1.0,
-
-        maxScale: 4.0,
-
-        // ========================================================
-        // ZOOM SPEED
-        // ========================================================
-        scaleFactor: 200.0,
-
-        transformationController: _transformationController,
-
-        // ========================================================
-        // NO MOVEMENT BOUNDARY
-        // ========================================================
-        boundaryMargin: EdgeInsets.zero,
-
-        constrained: true,
-
-        clipBehavior: Clip.none,
-
-        // ========================================================
-        // IMAGE
-        // ========================================================
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-
-          fadeInDuration: Duration.zero,
-
-          fadeOutDuration: Duration.zero,
-
-          useOldImageOnUrlChange: true,
-
-          placeholder: (context, url) {
-            return Center(
-              child: Lottie.asset(
-                'assets/animations/loading_text.json',
-                width: 80,
-                height: 80,
-                fit: BoxFit.contain,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: availableWidth,
+                maxHeight: availableHeight,
               ),
-            );
-          },
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                useOldImageOnUrlChange: true,
 
-          imageBuilder: (context, imageProvider) {
-            return Image(
-              image: imageProvider,
+                placeholder: (context, url) {
+                  return Center(
+                    child: Lottie.asset(
+                      'assets/animations/loading_text.json',
+                      width: 225,
+                      height: 225,
+                      fit: BoxFit.contain,
+                    ),
+                  );
+                },
 
-              fit: BoxFit.contain,
+                imageBuilder: (context, imageProvider) {
+                  return Image(
+                    image: imageProvider,
+                    width: availableWidth,
+                    height: availableHeight,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    gaplessPlayback: true,
+                  );
+                },
 
-              filterQuality: FilterQuality.high,
-
-              gaplessPlayback: true,
-            );
-          },
-
-          errorWidget: (context, url, error) {
-            debugPrint('GK MASTER IMAGE ERROR: $error');
-
-            return _buildImageError();
-          },
-        ),
-      ),
+                errorWidget: (context, url, error) {
+                  debugPrint('GK MASTER IMAGE ERROR: $error');
+                  return _buildImageError();
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -800,7 +1032,12 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
   Widget _buildBottomControls({
     required int currentIndex,
     required int totalImages,
+    required bool hasBackgroundImage,
   }) {
+    if (hasBackgroundImage) {
+      return const SizedBox.shrink();
+    }
+
     final bool canGoPrevious = totalImages > 0;
 
     final bool canGoNext = totalImages > 0;
@@ -873,7 +1110,7 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: isPrevious
-                      ? const [Color(0xFF2563EB), Color(0xFF7C3AED)]
+                      ? const [Color(0xFFEB2525), Color(0xFFED3A3A)]
                       : const [Color(0xFF16A34A), Color(0xFF22C55E)],
                 )
               : null,
@@ -934,8 +1171,8 @@ class _GKMasterImagesPageState extends State<GKMasterImagesPage> {
     return Center(
       child: Lottie.asset(
         'assets/animations/loading_text.json',
-        width: 150,
-        height: 150,
+        width: 225,
+        height: 225,
         fit: BoxFit.contain,
       ),
     );

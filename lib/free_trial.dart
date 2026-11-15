@@ -215,21 +215,21 @@ class FreeTrialPage extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        '15-Day Free Trial',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF333333),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
                                       Text(
                                         '$days days remaining',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w800,
                                           color: Color(0xFFF57C00),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text(
+                                        '15-Day Free Trial',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF333333),
                                         ),
                                       ),
                                     ],

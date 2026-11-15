@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
 
 import 'widgets.dart/appbar_page.dart';
+import 'utils/file_utils.dart';
 
 /// PDF reader that renders pages as high-resolution PNG images.
 ///
@@ -33,7 +35,8 @@ class PdfViewerPage extends StatefulWidget {
   State<PdfViewerPage> createState() => _PdfViewerPageState();
 }
 
-class _PdfViewerPageState extends State<PdfViewerPage> {
+class _PdfViewerPageState extends State<PdfViewerPage>
+    with TickerProviderStateMixin {
   // Render a lightweight preview first so zoom becomes available quickly.
   static const double _previewRenderScale = 1.5;
   static const double _renderScale = 3.0;
@@ -60,11 +63,24 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   final Set<int> _renderingPages = {};
   final Set<int> _renderingHighResolutionPages = {};
   bool _isZoomed = false;
+  Offset _doubleTapPosition = Offset.zero;
+  late final AnimationController _zoomAnimationController;
+  Animation<Matrix4>? _zoomAnimation;
 
   @override
   void initState() {
     super.initState();
     _transformationController.addListener(_onTransformChanged);
+    _zoomAnimationController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 260),
+        )..addListener(() {
+          final animation = _zoomAnimation;
+          if (animation != null) {
+            _transformationController.value = animation.value;
+          }
+        });
     unawaited(_initializePdf());
   }
 
@@ -83,6 +99,8 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       _renderingPages.clear();
       _renderingHighResolutionPages.clear();
       _isZoomed = false;
+      _zoomAnimationController.stop();
+      _zoomAnimation = null;
     });
 
     final oldDocument = _document;
@@ -96,19 +114,32 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
     PdfDocument? openedDocument;
     try {
       final String path;
-      if (widget.isLocal) {
-        path = widget.url;
-        final file = File(path);
-        if (!await file.exists()) throw Exception('Local PDF file not found.');
-        await _validatePdfFile(file);
+
+      if (kIsWeb) {
+        // Browsers cannot use dart:io File paths. Fetch PDF bytes and open
+        // them directly. The source server must allow CORS for this request.
+        final bytes = await _downloadTemporaryPdfBytes();
+        if (!mounted) return;
+        setState(() => _status = 'Reading PDF pages...');
+        openedDocument = await PdfDocument.openData(bytes);
+        path = widget.downloadUrl ?? widget.url;
       } else {
-        path = await _downloadTemporaryPdf();
+        if (widget.isLocal) {
+          path = widget.url;
+          final file = File(path);
+          if (!await file.exists()) {
+            throw Exception('Local PDF file not found.');
+          }
+          await _validatePdfFile(file);
+        } else {
+          path = await _downloadTemporaryPdf();
+        }
+
+        if (!mounted) return;
+        setState(() => _status = 'Reading PDF pages...');
+        openedDocument = await PdfDocument.openFile(path);
       }
 
-      if (!mounted) return;
-      setState(() => _status = 'Reading PDF pages...');
-
-      openedDocument = await PdfDocument.openFile(path);
       final pageCount = openedDocument.pagesCount;
       if (pageCount < 1) throw Exception('The PDF contains no pages.');
 
@@ -162,47 +193,80 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   }
 
   Future<String> _downloadTemporaryPdf() async {
-    final directory = await getTemporaryDirectory();
-    final safeTitle = _safeTitle(widget.title);
-    final finalPath = '${directory.path}/$safeTitle.pdf';
-    final stagingPath = '${directory.path}/$safeTitle.download.part';
-    final stagingFile = File(stagingPath);
-    final finalFile = File(finalPath);
+    final sourceUrl = widget.downloadUrl ?? widget.url;
 
-    if (await stagingFile.exists()) await stagingFile.delete();
+    // Remote PDFs use the same centralized 24-hour cache as other study files.
+    // The permanent "Download PDF" action below still saves a separate copy
+    // under Documents/EdMaster_PDFs and is not subject to cache cleanup.
+    final cachedFile = await FileUtils.downloadFile(sourceUrl);
+    if (cachedFile == null) {
+      throw Exception('Unable to download this PDF. Please try again.');
+    }
 
     try {
-      await _dio.download(
-        widget.downloadUrl ?? widget.url,
-        stagingPath,
-        onReceiveProgress: (received, total) {
-          if (!mounted) return;
-          setState(() {
-            _status = total > 0
-                ? 'Downloading PDF: ${(received / total * 100).toStringAsFixed(0)}%'
-                : 'Downloading PDF...';
-          });
-        },
+      await _validatePdfFile(cachedFile);
+      return cachedFile.path;
+    } catch (_) {
+      // Do not let an HTML/error response be reused as a PDF on the next open.
+      await FileUtils.deleteCachedFile(sourceUrl);
+      rethrow;
+    }
+  }
+
+  /// Web-only download path. Browser CORS rules apply to the PDF host.
+  Future<Uint8List> _downloadTemporaryPdfBytes() async {
+    final sourceUrl = widget.downloadUrl ?? widget.url;
+
+    try {
+      final response = await _dio.get<List<int>>(
+        sourceUrl,
         options: Options(
+          responseType: ResponseType.bytes,
           followRedirects: true,
           receiveTimeout: const Duration(seconds: 90),
-          sendTimeout: const Duration(seconds: 30),
           validateStatus: (status) =>
               status != null && status >= 200 && status < 300,
         ),
       );
 
-      await _validatePdfFile(stagingFile);
-      if (await finalFile.exists()) await finalFile.delete();
-      return (await stagingFile.rename(finalPath)).path;
-    } catch (_) {
-      if (await stagingFile.exists()) {
-        try {
-          await stagingFile.delete();
-        } catch (_) {}
+      final data = response.data;
+      if (data == null || data.length < 5) {
+        throw Exception('The server returned an empty or incomplete PDF.');
       }
-      rethrow;
+
+      final bytes = Uint8List.fromList(data);
+      if (!_hasPdfSignature(bytes)) {
+        throw Exception(
+          'The server did not return a PDF. It may have returned an HTML '
+          'error page instead.',
+        );
+      }
+
+      return bytes;
+    } on DioException catch (error) {
+      debugPrint('WEB PDF DOWNLOAD ERROR: $error');
+      throw Exception(
+        'Unable to load this PDF in the browser. Check the PDF URL and '
+        'whether its server allows cross-origin (CORS) requests.',
+      );
     }
+  }
+
+  bool _hasPdfSignature(Uint8List bytes) {
+    const signature = <int>[0x25, 0x50, 0x44, 0x46, 0x2D]; // %PDF-
+    final limit = bytes.length < 1024 ? bytes.length : 1024;
+
+    for (var i = 0; i <= limit - signature.length; i++) {
+      var matches = true;
+      for (var j = 0; j < signature.length; j++) {
+        if (bytes[i + j] != signature[j]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return true;
+    }
+    return false;
   }
 
   Future<void> _validatePdfFile(File file) async {
@@ -337,6 +401,23 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
     }
   }
 
+  void _animateToTransformation(Matrix4 target) {
+    _zoomAnimationController.stop();
+
+    _zoomAnimation =
+        Matrix4Tween(
+          begin: Matrix4.copy(_transformationController.value),
+          end: target,
+        ).animate(
+          CurvedAnimation(
+            parent: _zoomAnimationController,
+            curve: Curves.easeInOutCubic,
+          ),
+        );
+
+    _zoomAnimationController.forward(from: 0);
+  }
+
   void _onTransformChanged() {
     if (!mounted) return;
     final zoomed = _transformationController.value.getMaxScaleOnAxis() > 1.01;
@@ -354,6 +435,8 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
     final pageNumber = index + 1;
     if (!mounted || pageNumber == _currentPage) return;
 
+    _zoomAnimationController.stop();
+    _zoomAnimation = null;
     _transformationController.value = Matrix4.identity();
     setState(() {
       _currentPage = pageNumber;
@@ -438,39 +521,82 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
           );
         }
 
-        return Center(
-          child: GestureDetector(
-            onDoubleTap: () {
-              _transformationController.value = _isZoomed
-                  ? Matrix4.identity()
-                  : (Matrix4.identity()..scale(2.0));
-            },
-            child: InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 1,
-              maxScale: 6,
-              // At fit-to-page size the page stays centered and cannot be
-              // dragged away. Panning becomes available only after zooming.
-              panEnabled: _isZoomed,
-              scaleEnabled: true,
-              alignment: Alignment.center,
-              constrained: true,
-              clipBehavior: Clip.hardEdge,
-              boundaryMargin: EdgeInsets.zero,
-              child: Image.memory(
-                bytes,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-                gaplessPlayback: true,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Text(
-                    'Could not display this page image.',
-                    style: TextStyle(color: Colors.black87),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final viewportWidth = constraints.maxWidth;
+            final viewportHeight = constraints.maxHeight;
+            final boundary = constraints.biggest.longestSide;
+
+            return SizedBox(
+              width: viewportWidth,
+              height: viewportHeight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTapDown: (details) {
+                  // This position is local to the same full-size viewport
+                  // that InteractiveViewer uses.
+                  _doubleTapPosition = details.localPosition;
+                },
+                onDoubleTap: () {
+                  if (_isZoomed) {
+                    _animateToTransformation(Matrix4.identity());
+                    return;
+                  }
+
+                  const zoomScale = 2.0;
+                  final tap = _doubleTapPosition;
+
+                  // With Alignment.topLeft, the transformation coordinates
+                  // match the viewport coordinates directly.
+                  final scenePoint = _transformationController.toScene(tap);
+
+                  // Keep the point that was tapped at the same screen
+                  // position while scaling around it.
+                  final target = Matrix4.identity()
+                    ..translate(tap.dx, tap.dy)
+                    ..scale(zoomScale)
+                    ..translate(-scenePoint.dx, -scenePoint.dy);
+
+                  _animateToTransformation(target);
+                },
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 1.0,
+                  maxScale: 6.0,
+
+                  // The page cannot be dragged at normal size.
+                  // Panning is enabled automatically after zooming.
+                  panEnabled: _isZoomed,
+                  scaleEnabled: true,
+
+                  // Top-left alignment keeps tap-to-scene coordinates
+                  // predictable for double-tap zoom.
+                  alignment: Alignment.topLeft,
+                  constrained: true,
+                  boundaryMargin: EdgeInsets.all(boundary),
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(
+                    width: viewportWidth,
+                    height: viewportHeight,
+                    child: Image.memory(
+                      bytes,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      gaplessPlayback: true,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Text(
+                            'Could not display this page image.',
+                            style: TextStyle(color: Colors.black87),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -551,6 +677,17 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   Future<void> _downloadPdf() async {
     if (!widget.allowDownload || _isDownloading) return;
+
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Use the browser PDF download option to save this textbook.',
+          ),
+        ),
+      );
+      return;
+    }
     String? stagingPath;
 
     try {
@@ -753,6 +890,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       unawaited(document.close().catchError((_) {}));
     }
     _pageController.dispose();
+    _zoomAnimationController.dispose();
     _transformationController.removeListener(_onTransformChanged);
     _transformationController.dispose();
 
@@ -767,7 +905,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F5F2),
       appBar: _buildAppBar(),
       body: SafeArea(
         top: false,
@@ -780,15 +918,9 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
             else if (_hasError)
               _buildErrorView()
             else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: ColoredBox(
-                    color: Colors.white,
-                    child: _buildPdfPages(),
-                  ),
-                ),
+              ColoredBox(
+                color: const Color(0xFFF5F5F2),
+                child: _buildPdfPages(),
               ),
             _buildLandscapePortraitButton(),
           ],

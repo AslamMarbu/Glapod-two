@@ -1,5 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // 1. Import Provider
+import 'package:provider/provider.dart';
+import 'package:aia_chaser/aia_chaser.dart';
+
+import 'utils/file_utils.dart';
 import 'login.dart';
 import 'register_page.dart';
 import 'storage/local_storage_service.dart';
@@ -8,7 +14,8 @@ import 'free_trial.dart';
 import 'splash_screen.dart';
 import 'activate_continue_page.dart';
 import 'profile.dart';
-import 'providers/study_provider.dart'; // 2. Import your StudyProvider
+
+import 'providers/study_provider.dart';
 import 'providers/chapter_provider.dart';
 import 'providers/notes_provider.dart';
 import 'providers/video_provider.dart';
@@ -35,6 +42,24 @@ import 'providers/gk_master_visual_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Fix incomplete SSL certificate chain for NCERT downloads.
+  // This applies only to ncert.nic.in.
+  try {
+    await AiaChaser.initialize(
+      AiaConfig(hosts: {'ncert.nic.in': const HostPolicy.chase()}),
+    );
+
+    HttpOverrides.global = AiaHttpOverrides();
+
+    debugPrint('AIA Chaser initialized successfully.');
+  } catch (e) {
+    debugPrint('AIA Chaser initialization failed: $e');
+  }
+
+  // Start cleanup without delaying authentication checks or the first screen.
+  unawaited(FileUtils.cleanupExpiredCache());
+
   bool isLoggedIn = await LocalStorageService.isUserLoggedIn();
 
   // Default page for logged-out users
@@ -47,28 +72,32 @@ void main() async {
       case LicenseStatus.needProfileUpdate:
         startPage = const ProfilePage();
         break;
+
       case LicenseStatus.activated:
         startPage = const StudentDashboardPage();
         break;
+
       case LicenseStatus.trialing:
         startPage = const FreeTrialPage();
         break;
+
       case LicenseStatus.expired:
       case LicenseStatus.trialExpired:
         startPage = const ActivateContinuePage();
         break;
+
       default:
         startPage = const MyHomePage();
     }
   }
 
-  // 3. Wrap MyApp with MultiProvider
+  // MultiProvider
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => GkProvider()),
         ChangeNotifierProvider(create: (_) => StudyProvider()),
-        //   ChangeNotifierProvider(create: (_) => ChapterProvider()), // Add this
+        // ChangeNotifierProvider(create: (_) => ChapterProvider()),
         ChangeNotifierProvider(create: (_) => NotesProvider()),
         ChangeNotifierProvider(create: (_) => VideoProvider()),
         ChangeNotifierProvider(create: (_) => QuestionProvider()),
@@ -121,8 +150,10 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // SplashScreen handles the navigation to initialPage internally
+
+      // SplashScreen handles navigation to initialPage internally.
       home: SplashScreen(isLoggedIn: isLoggedIn),
+
       routes: {
         '/login': (context) => const MyHomePage(),
         '/register': (context) => const RegisterPage(),
