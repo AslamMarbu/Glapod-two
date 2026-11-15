@@ -81,6 +81,10 @@ class _SubjectCardState extends State<SubjectCard> {
     );
   }
 
+  void _toggleExpansion() {
+    widget.onExpansionChanged(!_isExpanded);
+  }
+
   @override
   Widget build(BuildContext context) {
     int chapterCount = widget.chapters?.length ?? 0;
@@ -173,252 +177,93 @@ class _SubjectCardState extends State<SubjectCard> {
       return 0; // maintain default sorting order
     });
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: borderTint, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: widget.primaryColor.withOpacity(0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: lightBgTint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.menu_book_rounded,
-                    color: widget.primaryColor,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.subjectName,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "$chapterCount Chapters",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => widget.onExpansionChanged(!_isExpanded),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: widget.primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ],
+    return Center(
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 600),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: borderTint, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: widget.primaryColor.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 5),
             ),
-          ),
-
-          if (_isExpanded) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(
-                color: widget.primaryColor.withOpacity(0.1),
-                height: 1,
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 0, 16),
-              child: SizedBox(
-                height: 120,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: _toggleExpansion,
+              borderRadius: BorderRadius.circular(30),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.imageUrl != null &&
-                        widget.imageUrl!.isNotEmpty) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: CachedNetworkImage(
-                          imageUrl: widget.imageUrl!,
-                          width: 90,
-                          height: 120,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            width: 90,
-                            height: 120,
-                            color: Colors.grey.shade100,
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            width: 90,
-                            height: 120,
-                            color: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.book_rounded,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: lightBgTint,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 16),
-                    ],
-                    Expanded(
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: resourceItems.length,
-                        itemBuilder: (context, index) {
-                          final item = resourceItems[index];
-                          final bool isItemEnabled = item['isEnabled'] ?? false;
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        color: widget.primaryColor,
+                        size: 24,
+                      ),
+                    ),
 
-                          return GestureDetector(
-                            onTap: isItemEnabled
-                                ? () {
-                                    if (item['page'] != null) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => item['page'],
-                                        ),
-                                      );
-                                    }
-                                  }
-                                : null,
-                            child: Opacity(
-                              opacity: isItemEnabled ? 1.0 : 0.45,
-                              child: Container(
-                                width: 160,
-                                margin: const EdgeInsets.only(
-                                  right: 14,
-                                  bottom: 4,
-                                  top: 4,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(22),
-                                  border: Border.all(
-                                    color: isItemEnabled
-                                        ? borderTint
-                                        : Colors.grey.withOpacity(0.2),
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: widget.primaryColor.withOpacity(
-                                        0.01,
-                                      ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 42,
-                                      height: 42,
-                                      decoration: BoxDecoration(
-                                        color: isItemEnabled
-                                            ? item['color']
-                                            : Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Icon(
-                                        item['icon'],
-                                        color: isItemEnabled
-                                            ? item['iconColor']
-                                            : Colors.grey.shade400,
-                                        size: 22,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item['title'],
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.bold,
-                                              color: isItemEnabled
-                                                  ? const Color(0xFF1E293B)
-                                                  : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            item['subtitle'],
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              color: Color(0xFF94A3B8),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                    const SizedBox(width: 16),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.subjectName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "$chapterCount Chapters",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: widget.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: AnimatedRotation(
+                        turns: _isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 250),
+                        child: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
                     ),
                   ],
@@ -426,41 +271,217 @@ class _SubjectCardState extends State<SubjectCard> {
               ),
             ),
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () => _handleNavigation(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                  ),
+            if (_isExpanded) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(
+                  color: widget.primaryColor.withOpacity(0.1),
+                  height: 1,
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 0, 16),
+                child: SizedBox(
+                  height: 120,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.arrow_circle_right_rounded, size: 24),
-                      SizedBox(width: 12),
-                      Text(
-                        "View All Chapters",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (widget.imageUrl != null &&
+                          widget.imageUrl!.isNotEmpty) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: CachedNetworkImage(
+                            imageUrl: widget.imageUrl!,
+                            width: 90,
+                            height: 120,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              width: 90,
+                              height: 120,
+                              color: Colors.grey.shade100,
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              width: 90,
+                              height: 120,
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.book_rounded,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                      Expanded(
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: resourceItems.length,
+                          itemBuilder: (context, index) {
+                            final item = resourceItems[index];
+                            final bool isItemEnabled =
+                                item['isEnabled'] ?? false;
+
+                            return GestureDetector(
+                              onTap: isItemEnabled
+                                  ? () {
+                                      if (item['page'] != null) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => item['page'],
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  : null,
+                              child: Opacity(
+                                opacity: isItemEnabled ? 1.0 : 0.45,
+                                child: Container(
+                                  width: 160,
+                                  margin: const EdgeInsets.only(
+                                    right: 14,
+                                    bottom: 4,
+                                    top: 4,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(
+                                      color: isItemEnabled
+                                          ? borderTint
+                                          : Colors.grey.withOpacity(0.2),
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: widget.primaryColor.withOpacity(
+                                          0.01,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: isItemEnabled
+                                              ? item['color']
+                                              : Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          item['icon'],
+                                          color: isItemEnabled
+                                              ? item['iconColor']
+                                              : Colors.grey.shade400,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item['title'],
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: isItemEnabled
+                                                    ? const Color(0xFF1E293B)
+                                                    : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              item['subtitle'],
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                                color: Color(0xFF94A3B8),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () => _handleNavigation(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.arrow_circle_right_rounded, size: 24),
+                        SizedBox(width: 12),
+                        Text(
+                          "View All Chapters",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

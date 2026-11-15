@@ -133,16 +133,34 @@ class AuthService {
   }
 
   // STEP 2: Finalize Activation
+
   static Future<Map<String, dynamic>> activatePurchaseKey({
     required String activationKey,
     required String serialNumber,
-    required String deviceId,
+    required String mobile,
+    required String name,
+    required String email,
+    required String country,
+    required String deviceInfo,
+    String? state,
   }) async {
     final url = Uri.parse('$baseUrl/api/activate-purchase-key');
-
     final String? token = await LocalStorageService.getToken();
 
     try {
+      final requestBody = {
+        "mobile": mobile,
+        "name": name,
+        "mailid": email,
+        "country": country,
+        "state": state,
+        "serialnumber": serialNumber,
+        "activation_key": activationKey,
+        "device_info": deviceInfo,
+      };
+
+      debugPrint("ACTIVATION REQUEST => ${jsonEncode(requestBody)}");
+
       final response = await http.post(
         url,
         headers: {
@@ -150,12 +168,11 @@ class AuthService {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          "activation_key": activationKey,
-          "serialnumber": serialNumber,
-          "device_info": deviceId,
-        }),
+        body: jsonEncode(requestBody),
       );
+
+      debugPrint("ACTIVATION STATUS => ${response.statusCode}");
+      debugPrint("ACTIVATION RESPONSE => ${response.body}");
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -164,7 +181,9 @@ class AuthService {
         "message": responseData['message'] ?? "Activation failed",
       };
     } catch (e) {
-      return {"success": false, "message": "Activation failed"};
+      debugPrint("ACTIVATION ERROR => $e");
+
+      return {"success": false, "message": "Activation failed: $e"};
     }
   }
 

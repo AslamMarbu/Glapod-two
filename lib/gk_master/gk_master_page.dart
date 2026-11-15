@@ -84,12 +84,43 @@ class _GKMasterHomePageState extends State<GKMasterHomePage> {
   // OPEN CATEGORY
   // ============================================================
 
-  void _openCategory(Map<String, dynamic> category) {
+  Future<void> _openCategory(Map<String, dynamic> category) async {
     final dynamic categoryId = category['id'];
 
     if (categoryId == null) {
       return;
     }
+
+    // Fetch the selected category contents before opening the image page.
+    // The API response contains category.background_image.
+    final provider = context.read<GKMasterProvider>();
+
+    await provider.loadCategoryContents(categoryId);
+
+    if (!mounted) return;
+
+    // Preload and decode the background before navigation so it is ready
+    // when GKMasterImagesPage is first displayed.
+    final dynamic rawCategory = provider.selectedCategory?['category'];
+
+    final String backgroundImage = rawCategory is Map
+        ? rawCategory['background_image']?.toString().trim() ?? ''
+        : '';
+
+    if (backgroundImage.isNotEmpty) {
+      try {
+        await precacheImage(
+          CachedNetworkImageProvider(backgroundImage),
+          context,
+        );
+        debugPrint('GK MASTER BACKGROUND PRELOADED: $backgroundImage');
+      } catch (e) {
+        // Continue to the image page even if preloading fails.
+        debugPrint('GK MASTER BACKGROUND PRELOAD ERROR: $e');
+      }
+    }
+
+    if (!mounted) return;
 
     Navigator.push(
       context,
@@ -97,6 +128,7 @@ class _GKMasterHomePageState extends State<GKMasterHomePage> {
         builder: (_) => GKMasterImagesPage(
           categoryId: categoryId,
           categoryName: category['category']?.toString() ?? '',
+          initialDataLoaded: true,
         ),
       ),
     );
@@ -922,11 +954,20 @@ class _GKMasterHomePageState extends State<GKMasterHomePage> {
 
   Widget _buildLoading() {
     return Center(
-      child: Lottie.asset(
-        'assets/animations/loading_text.json',
-        width: 150,
-        height: 150,
-        fit: BoxFit.contain,
+      child: SizedBox(
+        width: 350,
+        height: 350,
+        child: ClipRect(
+          child: Transform.scale(
+            scale: 2.5,
+            child: Lottie.asset(
+              'assets/animations/loading_text.json',
+              width: 225,
+              height: 225,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -981,8 +1022,8 @@ class _GKMasterHomePageState extends State<GKMasterHomePage> {
     return Center(
       child: Lottie.asset(
         'assets/animations/loading_text.json',
-        width: 70,
-        height: 70,
+        width: 100,
+        height: 100,
         fit: BoxFit.contain,
       ),
     );

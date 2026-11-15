@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:Edmaster/pdf_view_page.dart';
@@ -112,11 +113,38 @@ class _TextbookListingPageState extends State<TextbookListingPage> {
       return;
     }
 
-    final file = await provider.getBook(url);
+    // Flutter Web cannot use dart:io File paths or the native path_provider
+    // cache. Pass the remote URL directly; PdfViewerPage loads bytes on web.
+    // Android/iOS keep the existing 24-hour local file-cache flow.
+    if (kIsWeb) {
+      if (!mounted) return;
 
-    if (!mounted) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PdfViewerPage(
+            url: url,
+            downloadUrl: url,
+            allowDownload: true,
+            title: title,
+            isLocal: false,
+          ),
+        ),
+      );
       return;
     }
+
+    debugPrint('TEXTBOOK BUTTON TAPPED');
+    debugPrint('TEXTBOOK URL => $url');
+
+    debugPrint('TEXTBOOK URL => $url');
+
+    final file = await provider.getBook(url);
+
+    debugPrint('TEXTBOOK RESULT => ${file?.path ?? "NULL"}');
+    debugPrint('TEXTBOOK RESULT => ${file?.path ?? "NULL"}');
+
+    if (!mounted) return;
 
     if (file == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -124,11 +152,10 @@ class _TextbookListingPageState extends State<TextbookListingPage> {
           content: Text('Unable to download textbook. Please try again.'),
         ),
       );
-
       return;
     }
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PdfViewerPage(
@@ -228,7 +255,9 @@ class _TextbookListingPageState extends State<TextbookListingPage> {
                     title: title,
                     subtitle: subtitle,
                     isDownloading: provider.isLoading(fileUrl),
-                    isDownloadedFuture: provider.isFileValid(fileUrl),
+                    isDownloadedFuture: kIsWeb
+                        ? Future<bool>.value(false)
+                        : provider.isFileValid(fileUrl),
                     onTap: () {
                       _handleAction(
                         provider,

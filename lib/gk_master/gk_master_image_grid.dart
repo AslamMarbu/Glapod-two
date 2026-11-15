@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'gk_master_images.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
@@ -7,6 +8,7 @@ class GKMasterImageGridPage extends StatefulWidget {
   final String categoryName;
   final String categoryImage;
   final int currentIndex;
+  final dynamic categoryId;
 
   const GKMasterImageGridPage({
     super.key,
@@ -14,6 +16,7 @@ class GKMasterImageGridPage extends StatefulWidget {
     required this.categoryName,
     required this.categoryImage,
     required this.currentIndex,
+    required this.categoryId,
   });
 
   @override
@@ -253,13 +256,19 @@ class _GKMasterImageGridPageState extends State<GKMasterImageGridPage> {
 
                             return _buildGridCard(
                               imageUrl: imageUrl,
-
                               fileName: fileName,
-
                               isCurrent: originalIndex == widget.currentIndex,
-
                               onTap: () {
-                                Navigator.pop(context, originalIndex);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => GKMasterImagesPage(
+                                      categoryId: widget.categoryId,
+                                      categoryName: widget.categoryName,
+                                      initialIndex: originalIndex,
+                                    ),
+                                  ),
+                                );
                               },
                             );
                           },
@@ -533,8 +542,8 @@ class _GKMasterImageGridPageState extends State<GKMasterImageGridPage> {
                             return Center(
                               child: Lottie.asset(
                                 'assets/animations/loading_text.json',
-                                width: 55,
-                                height: 55,
+                                width: 80,
+                                height: 80,
                                 fit: BoxFit.contain,
                               ),
                             );

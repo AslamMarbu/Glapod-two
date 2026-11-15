@@ -8,6 +8,7 @@ import '../utils/app_colors.dart';
 import 'prediction_name_grid_page.dart';
 import 'widgets.dart/appbar_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/student_service.dart';
 
 // --- REUSABLE SHIMMER COMPONENT ---
 class ShimmerPlaceholder extends StatelessWidget {
@@ -74,6 +75,12 @@ class _PredictionNamePageState extends State<PredictionNamePage>
   bool _isInitialized = false;
 
   bool _isRestartingQuestions = false;
+
+  // Prediction Name image preloading cache.
+  List<dynamic> _questionGridCache = [];
+  bool _questionGridLoaded = false;
+  bool _questionGridLoading = false;
+  int _preloadGeneration = 0;
 
   // 👁️ Reveal feature state
   bool _showAnswerReveal = false;
@@ -156,35 +163,149 @@ class _PredictionNamePageState extends State<PredictionNamePage>
     _imageSliderTimer = null;
   }
 
+  List<String> _validImageUrls(dynamic rawImages) {
+    if (rawImages is! List) return <String>[];
+
+    return rawImages
+        .map((item) {
+          if (item is String) return item.trim();
+          if (item is Map) {
+            return (item['url'] ??
+                    item['image_url'] ??
+                    item['image'] ??
+                    item['path'] ??
+                    '')
+                .toString()
+                .trim();
+          }
+          return '';
+        })
+        .where((url) => url.isNotEmpty && url.toLowerCase() != 'null')
+        .toList();
+  }
+
+  Future<void> _preloadImage(String imageUrl) async {
+    if (!mounted || imageUrl.isEmpty || imageUrl.toLowerCase() == 'null') {
+      return;
+    }
+
+    try {
+      await precacheImage(CachedNetworkImageProvider(imageUrl), context);
+    } catch (e) {
+      debugPrint('Prediction Name image preload failed: $imageUrl - $e');
+    }
+  }
+
+  // Preload all images belonging to the active question. The first image is
+  // awaited first so the currently visible question is prioritized.
   Future<void> _preloadQuestionImages(List<String> images) async {
     if (!mounted || images.isEmpty) return;
 
-    final List<String> validImages = images
-        .where((url) => url.isNotEmpty && url != 'null')
+    final validImages = images
+        .where((url) => url.trim().isNotEmpty && url.toLowerCase() != 'null')
         .toList();
 
     if (validImages.isEmpty) return;
 
-    try {
-      await precacheImage(
-        CachedNetworkImageProvider(validImages.first),
-        context,
-      );
-    } catch (e) {
-      debugPrint('First image preload failed: ${validImages.first} - $e');
-    }
-
-    if (!mounted) return;
+    await _preloadImage(validImages.first);
 
     for (int i = 1; i < validImages.length; i++) {
       if (!mounted) return;
+      await _preloadImage(validImages[i]);
+    }
+  }
 
-      final String imageUrl = validImages[i];
+  // Fetch the question grid once, then preload the first image for the next
+  // two grid questions. This uses the grid endpoint, not loadQuestion(),
+  // because calling loadQuestion() for preloading could advance quiz progress.
+  Future<void> _preloadNextQuestionImages(
+    Map<String, dynamic> currentQuestion,
+  ) async {
+    final int generation = ++_preloadGeneration;
+    final currentId = currentQuestion['id']?.toString();
 
+    if (!_questionGridLoaded && !_questionGridLoading) {
+      _questionGridLoading = true;
       try {
-        await precacheImage(CachedNetworkImageProvider(imageUrl), context);
+        final response = await StudentService.getGuessNameQuestionGrid(
+          categoryId: widget.categoryId,
+          level: widget.level,
+        );
+
+        if (response['status'] == true && response['data'] is List) {
+          _questionGridCache = List<dynamic>.from(response['data']);
+          _questionGridLoaded = true;
+        }
       } catch (e) {
-        debugPrint('Background image preload failed: $imageUrl - $e');
+        debugPrint('Prediction Name grid preload lookup failed: $e');
+      } finally {
+        _questionGridLoading = false;
+      }
+    }
+
+    if (!mounted ||
+        generation != _preloadGeneration ||
+        _questionGridCache.isEmpty) {
+      return;
+    }
+
+    int currentIndex = _questionGridCache.indexWhere((item) {
+      if (item is! Map) return false;
+      return item['id']?.toString() == currentId;
+    });
+
+    // If the current item is not found, avoid assuming an ordering for it.
+    // Preload the first two available grid images other than the current URL.
+    final currentImages = _validImageUrls(currentQuestion['images']);
+    final currentUrl = currentImages.isNotEmpty ? currentImages.first : null;
+
+    final List<String> nextUrls = <String>[];
+    if (currentIndex >= 0) {
+      for (
+        int i = currentIndex + 1;
+        i < _questionGridCache.length && nextUrls.length < 2;
+        i++
+      ) {
+        final item = _questionGridCache[i];
+        if (item is! Map) continue;
+        final urls = _validImageUrls(item['images']);
+        if (urls.isNotEmpty && urls.first != currentUrl) {
+          nextUrls.add(urls.first);
+        }
+      }
+    } else {
+      for (final item in _questionGridCache) {
+        if (nextUrls.length >= 2) break;
+        if (item is! Map) continue;
+        final urls = _validImageUrls(item['images']);
+        if (urls.isNotEmpty &&
+            urls.first != currentUrl &&
+            !nextUrls.contains(urls.first)) {
+          nextUrls.add(urls.first);
+        }
+      }
+    }
+
+    // Preload in the background, sequentially, so the current image remains
+    // the priority and we do not launch a large number of simultaneous loads.
+    for (final url in nextUrls) {
+      if (!mounted || generation != _preloadGeneration) return;
+      await _preloadImage(url);
+    }
+  }
+
+  Future<void> _evictPreviousQuestionImages(List<String> images) async {
+    final uniqueUrls = images
+        .where((url) => url.trim().isNotEmpty && url.toLowerCase() != 'null')
+        .toSet();
+
+    for (final url in uniqueUrls) {
+      try {
+        // Evict from Flutter's in-memory ImageCache only. CachedNetworkImage's
+        // disk cache is retained, allowing a revisit to load from disk.
+        await CachedNetworkImageProvider(url).evict();
+      } catch (e) {
+        debugPrint('Prediction Name memory-cache eviction failed: $e');
       }
     }
   }
@@ -194,9 +315,7 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
     _currentQuestionId = questionData['id'];
 
-    final List<String> questionImages = List<String>.from(
-      questionData['images'] ?? [],
-    );
+    final List<String> questionImages = _validImageUrls(questionData['images']);
 
     if (!_isInitialized && questionImages.isNotEmpty) {
       _startImageAutoSlide(questionImages);
@@ -207,6 +326,7 @@ class _PredictionNamePageState extends State<PredictionNamePage>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _preloadQuestionImages(questionImages);
+          _preloadNextQuestionImages(questionData);
         }
       });
     }
@@ -224,9 +344,8 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
         node.addListener(() {
           if (node.hasFocus) {
-            controller.selection = TextSelection(
-              baseOffset: 0,
-              extentOffset: controller.text.length,
+            controller.selection = TextSelection.collapsed(
+              offset: controller.text.length,
             );
             setState(() {});
           }
@@ -239,7 +358,7 @@ class _PredictionNamePageState extends State<PredictionNamePage>
       if (widget.level.toLowerCase() == "intermediate") {
         List<int> letterIndices = [];
         for (int i = 0; i < _correctAnswer.length; i++) {
-          if (_correctAnswer[i] != " ") letterIndices.add(i);
+          if (_isInputCharacter(_correctAnswer[i])) letterIndices.add(i);
         }
 
         letterIndices.shuffle();
@@ -259,9 +378,30 @@ class _PredictionNamePageState extends State<PredictionNamePage>
     }
   }
 
+  // Only letters and numbers get editable boxes. Punctuation is displayed
+  // automatically outside the boxes, and spaces separate words.
+  bool _isInputCharacter(String character) {
+    return RegExp(r'[A-Z0-9]').hasMatch(character);
+  }
+
+  int _nextInputIndex(int fromIndex) {
+    for (int i = fromIndex; i < _correctAnswer.length; i++) {
+      if (_isInputCharacter(_correctAnswer[i])) return i;
+    }
+    return -1;
+  }
+
+  int _previousInputIndex(int fromIndex) {
+    for (int i = fromIndex; i >= 0; i--) {
+      if (_isInputCharacter(_correctAnswer[i])) return i;
+    }
+    return -1;
+  }
+
   void _focusFirstEmpty() {
     for (int i = 0; i < _controllers.length; i++) {
-      if (_controllers[i].text.isEmpty) {
+      if (_isInputCharacter(_correctAnswer[i]) &&
+          _controllers[i].text.isEmpty) {
         _focusNodes[i].requestFocus();
         SystemChannels.textInput.invokeMethod('TextInput.show');
         break;
@@ -276,6 +416,17 @@ class _PredictionNamePageState extends State<PredictionNamePage>
       _triggerShake();
       return;
     }
+
+    final currentQuestion = context
+        .read<PredictionGameProvider>()
+        .currentResponse?['question'];
+    final previousImages = currentQuestion is Map
+        ? _validImageUrls(currentQuestion['images'])
+        : <String>[];
+
+    // Keep the old image on disk, but release it from memory when advancing.
+    await _evictPreviousQuestionImages(previousImages);
+    if (!mounted) return;
 
     _fetchNewQuestion();
   }
@@ -295,6 +446,7 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
   @override
   void dispose() {
+    _preloadGeneration++;
     _imageSliderTimer?.cancel();
 
     _shakeController.dispose();
@@ -335,7 +487,10 @@ class _PredictionNamePageState extends State<PredictionNamePage>
             child: InkWell(
               borderRadius: BorderRadius.circular(15),
               onTap: () {
-                setState(() => _isInitialized = false);
+                // Clear the previous answer's controllers before opening the
+                // grid. The selected question can have a different answer
+                // length, and stale controllers can cause a RangeError.
+                _resetLocalState();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -666,14 +821,26 @@ class _PredictionNamePageState extends State<PredictionNamePage>
 
   String _enteredWord() {
     final buffer = StringBuffer();
-    for (int i = 0; i < _controllers.length; i++) {
-      if (i < _correctAnswer.length && _correctAnswer[i] == ' ') continue;
-      buffer.write(_controllers[i].text.toUpperCase());
+
+    // Avoid indexing past the answer while a question is being replaced.
+    final int safeLength = _controllers.length < _correctAnswer.length
+        ? _controllers.length
+        : _correctAnswer.length;
+
+    for (int i = 0; i < safeLength; i++) {
+      if (_isInputCharacter(_correctAnswer[i])) {
+        buffer.write(_controllers[i].text.toUpperCase());
+      }
     }
     return buffer.toString();
   }
 
-  String _cleanCorrectAnswer() => _correctAnswer.replaceAll(' ', '');
+  String _cleanCorrectAnswer() {
+    return _correctAnswer
+        .split('')
+        .where((character) => _isInputCharacter(character))
+        .join();
+  }
 
   Widget _buildInputGrid() {
     final String targetPhrase = _correctAnswer.toUpperCase();
@@ -745,11 +912,26 @@ class _PredictionNamePageState extends State<PredictionNamePage>
                                 ? 0
                                 : letterSpacing,
                           ),
-                          child: _buildModernInputBox(
-                            index,
-                            width: boxWidth,
-                            height: boxHeight,
-                          ),
+                          child: _isInputCharacter(targetPhrase[index])
+                              ? _buildModernInputBox(
+                                  index,
+                                  width: boxWidth,
+                                  height: boxHeight,
+                                )
+                              : SizedBox(
+                                  width: boxWidth * 0.42,
+                                  height: boxHeight,
+                                  child: Center(
+                                    child: Text(
+                                      targetPhrase[index],
+                                      style: TextStyle(
+                                        fontSize: boxWidth < 28 ? 16 : 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF322881),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                         );
                       }),
                     );
@@ -853,53 +1035,76 @@ class _PredictionNamePageState extends State<PredictionNamePage>
               color: textColor,
             ),
           ),
-          TextField(
-            controller: _controllers[index],
-            focusNode: _focusNodes[index],
-            textAlign: TextAlign.center,
-            maxLength: 1,
-            showCursor: false,
-            enableSuggestions: false,
-            autocorrect: false,
-            style: const TextStyle(color: Colors.transparent),
-            decoration: const InputDecoration(
-              counterText: "",
-              border: InputBorder.none,
-              isCollapsed: true,
-            ),
-            onChanged: (value) {
-              setState(() {});
-
-              String enteredWord = _enteredWord();
-              String cleanCorrectAnswer = _cleanCorrectAnswer();
-
-              if (enteredWord == cleanCorrectAnswer) {
-                _focusNodes[index].unfocus();
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (_scrollController.hasClients) {
-                      _scrollController.animateTo(
-                        _scrollController.position.maxScrollExtent,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeOut,
-                      );
-                    }
-                  });
-                });
-              } else if (value.isNotEmpty) {
-                int nextIndex = index + 1;
-                if (nextIndex < _correctAnswer.length &&
-                    _correctAnswer[nextIndex] == " ") {
-                  nextIndex++;
-                }
-
-                if (nextIndex < _controllers.length) {
-                  _focusNodes[nextIndex].requestFocus();
-                } else {
-                  _focusNodes[index].unfocus();
+          Focus(
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.backspace &&
+                  _controllers[index].text.isEmpty) {
+                final int previousIndex = _previousInputIndex(index - 1);
+                if (previousIndex != -1) {
+                  _focusNodes[previousIndex].requestFocus();
+                  _controllers[previousIndex].clear();
+                  setState(() {});
+                  return KeyEventResult.handled;
                 }
               }
+              return KeyEventResult.ignored;
             },
+            child: TextField(
+              controller: _controllers[index],
+              focusNode: _focusNodes[index],
+              textAlign: TextAlign.center,
+              maxLength: 1,
+              showCursor: false,
+              enableSuggestions: false,
+              autocorrect: false,
+              style: const TextStyle(color: Colors.transparent),
+              decoration: const InputDecoration(
+                counterText: "",
+                border: InputBorder.none,
+                isCollapsed: true,
+              ),
+              onChanged: (value) {
+                setState(() {});
+
+                String enteredWord = _enteredWord();
+                String cleanCorrectAnswer = _cleanCorrectAnswer();
+
+                if (enteredWord == cleanCorrectAnswer) {
+                  _focusNodes[index].unfocus();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          _scrollController.position.maxScrollExtent,
+                          duration: const Duration(milliseconds: 500),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    });
+                  });
+                } else if (value.isNotEmpty) {
+                  // Move to the next editable letter, skipping punctuation/spaces.
+                  final int nextIndex = _nextInputIndex(index + 1);
+                  if (nextIndex != -1) {
+                    _focusNodes[nextIndex].requestFocus();
+                  } else {
+                    _focusNodes[index].unfocus();
+                  }
+                } else {
+                  // When Backspace empties a cell, move to the previous editable
+                  // cell. The next Backspace can delete that letter immediately.
+                  final int previousIndex = _previousInputIndex(index - 1);
+                  if (previousIndex != -1) {
+                    _focusNodes[previousIndex].requestFocus();
+                    _controllers[previousIndex].selection =
+                        TextSelection.collapsed(
+                          offset: _controllers[previousIndex].text.length,
+                        );
+                  }
+                }
+              },
+            ),
           ),
         ],
       ),

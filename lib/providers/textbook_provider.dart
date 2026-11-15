@@ -1,65 +1,55 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../utils/file_utils.dart';
 
 class TextbookProvider extends ChangeNotifier {
   final Map<String, bool> _loadingStatus = {};
-
-  // Prevent duplicate downloads for the same textbook URL.
   final Map<String, Future<File?>> _activeDownloads = {};
 
-  bool isLoading(String url) {
-    return _loadingStatus[url] ?? false;
-  }
-
-  // =========================================================
-  // CHECK WHETHER TEXTBOOK FILE IS VALID
-  // =========================================================
+  bool isLoading(String url) => _loadingStatus[url] ?? false;
 
   Future<bool> isFileValid(String url) async {
-    if (_isInvalidUrl(url)) {
-      return false;
-    }
+    // Browser builds use remote URLs/bytes, not dart:io File cache entries.
+    if (kIsWeb || _isInvalidUrl(url)) return false;
 
     try {
       final file = await FileUtils.getValidCache(url);
+      if (file == null) return false;
 
-      if (file == null) {
-        return false;
+      final validPdf = await _isValidPdf(file);
+      if (!validPdf) {
+        await FileUtils.deleteCachedFile(url);
       }
-
-      return await _isValidPdf(file);
+      return validPdf;
     } catch (e) {
       debugPrint('Textbook cache validation error: $e');
       return false;
     }
   }
 
-  // =========================================================
-  // GET TEXTBOOK
-  // =========================================================
-
   Future<File?> getBook(String url) async {
-    final cleanUrl = url.trim();
+    // TextbookListingPage bypasses this native-file API on web.
+    if (kIsWeb) {
+      debugPrint(
+        'TextbookProvider.getBook is native-only; use the URL on web.',
+      );
+      return null;
+    }
 
+    final cleanUrl = url.trim();
     if (_isInvalidUrl(cleanUrl)) {
       debugPrint('Invalid textbook URL: $cleanUrl');
       return null;
     }
 
-    // If already downloading this same textbook,
-    // return the existing download instead of starting another.
-    final existingDownload = _activeDownloads[cleanUrl];
-
-    if (existingDownload != null) {
-      return existingDownload;
-    }
+    final existing = _activeDownloads[cleanUrl];
+    if (existing != null) return existing;
 
     final future = _getBookInternal(cleanUrl);
-
     _activeDownloads[cleanUrl] = future;
 
     try {
@@ -69,74 +59,55 @@ class TextbookProvider extends ChangeNotifier {
     }
   }
 
-  // =========================================================
-  // INTERNAL TEXTBOOK LOADING
-  // =========================================================
-
   Future<File?> _getBookInternal(String url) async {
     _loadingStatus[url] = true;
     notifyListeners();
 
     try {
-      // -------------------------------------------------------
-      // FIRST: CHECK EXISTING CACHE
-      // -------------------------------------------------------
-
-      debugPrint('Checking textbook cache: $url');
-
+      // First check the 24-hour cache.
       final cachedFile = await FileUtils.getValidCache(url);
 
       if (cachedFile != null) {
-        final isValid = await _isValidPdf(cachedFile);
-
-        if (isValid) {
+        if (await _isValidPdf(cachedFile)) {
           debugPrint('Opening textbook from cache: ${cachedFile.path}');
-
           return cachedFile;
         }
 
-        debugPrint('Cached textbook is invalid. Downloading again.');
+        debugPrint('Invalid cached PDF. Removing it.');
+        await FileUtils.deleteCachedFile(url);
       }
 
-      // -------------------------------------------------------
-      // DOWNLOAD WITH RETRIES
-      // -------------------------------------------------------
-
-      for (int attempt = 1; attempt <= 3; attempt++) {
+      // First download attempt.
+      for (int attempt = 1; attempt <= 2; attempt++) {
         try {
-          debugPrint('Textbook download attempt $attempt/3: $url');
+          debugPrint('Textbook download attempt $attempt/2: $url');
 
           final file = await FileUtils.downloadFile(url);
 
+          if (file != null && await _isValidPdf(file)) {
+            debugPrint('Textbook downloaded successfully: ${file.path}');
+            return file;
+          }
+
           if (file != null) {
-            final isValid = await _isValidPdf(file);
-
-            if (isValid) {
-              debugPrint('Textbook downloaded successfully: ${file.path}');
-
-              return file;
-            }
-
-            debugPrint('Downloaded textbook is invalid.');
+            debugPrint('Invalid downloaded PDF. Removing it.');
+            await FileUtils.deleteCachedFile(url);
           }
         } catch (e) {
-          debugPrint('Textbook attempt $attempt failed: $e');
+          debugPrint('Textbook download attempt $attempt failed: $e');
         }
 
-        // Wait before retrying.
-        if (attempt < 3) {
-          await Future.delayed(Duration(seconds: attempt));
+        // Only a short delay before the final retry.
+        if (attempt == 1) {
+          await Future.delayed(const Duration(milliseconds: 500));
         }
       }
 
-      debugPrint('Textbook download failed after 3 attempts: $url');
-
+      debugPrint('Textbook download failed: $url');
       return null;
     } catch (e, stackTrace) {
       debugPrint('Textbook provider error: $e');
-
       debugPrint('$stackTrace');
-
       return null;
     } finally {
       _loadingStatus[url] = false;
@@ -144,53 +115,43 @@ class TextbookProvider extends ChangeNotifier {
     }
   }
 
-  // =========================================================
-  // PDF VALIDATION
-  // =========================================================
-
   Future<bool> _isValidPdf(File file) async {
     try {
-      if (!await file.exists()) {
-        return false;
-      }
+      if (!await file.exists()) return false;
 
-      final fileSize = await file.length();
+      final length = await file.length();
+      if (length <= 100) return false;
 
-      // Reject empty or suspiciously small files.
-      if (fileSize <= 100) {
-        return false;
-      }
+      final header = await file
+          .openRead(0, length < 1024 ? length : 1024)
+          .fold<List<int>>(
+            <int>[],
+            (previous, chunk) => previous..addAll(chunk),
+          );
 
-      // Check the PDF header.
-      final randomAccessFile = await file.open();
+      const signature = <int>[0x25, 0x50, 0x44, 0x46, 0x2D]; // %PDF-
 
-      try {
-        final header = await randomAccessFile.read(5);
+      for (var i = 0; i <= header.length - signature.length; i++) {
+        var matches = true;
 
-        final headerText = String.fromCharCodes(header);
-
-        if (headerText != '%PDF-') {
-          debugPrint('Invalid PDF header: $headerText');
-
-          return false;
+        for (var j = 0; j < signature.length; j++) {
+          if (header[i + j] != signature[j]) {
+            matches = false;
+            break;
+          }
         }
-      } finally {
-        await randomAccessFile.close();
+
+        if (matches) return true;
       }
 
-      return true;
+      debugPrint('Invalid PDF header: ${file.path}');
+      return false;
     } catch (e) {
       debugPrint('PDF validation error: $e');
-
       return false;
     }
   }
 
-  // =========================================================
-  // URL VALIDATION
-  // =========================================================
-
-  bool _isInvalidUrl(String url) {
-    return url.isEmpty || url == 'null';
-  }
+  bool _isInvalidUrl(String url) =>
+      url.trim().isEmpty || url.trim().toLowerCase() == 'null';
 }

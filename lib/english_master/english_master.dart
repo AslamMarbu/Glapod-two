@@ -9,6 +9,8 @@ import '../widgets.dart/appbar_page.dart';
 import 'english_master_file.dart';
 import 'verb_forms_page.dart';
 import 'word_family_page.dart';
+import 'antonyms_table_page.dart';
+import 'synonyms_table_page.dart';
 
 class EnglishMasterPage extends StatefulWidget {
   const EnglishMasterPage({super.key});
@@ -94,27 +96,68 @@ class _EnglishMasterPageState extends State<EnglishMasterPage> {
     final categoryName = (category['name'] ?? '')
         .toString()
         .trim()
-        .toLowerCase();
+        .toLowerCase()
+        .replaceAll('-', ' ')
+        .replaceAll('_', ' ');
 
+    // Translator: open the existing Translator page.
+    if (categoryName == 'translator') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TranslatorPage()),
+      );
+      return;
+    }
+
+    // Word Family: open the existing Word Family page.
+    if (categoryName == 'word family' || categoryName == 'word family table') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const WordFamilyPage()),
+      );
+      return;
+    }
+
+    // Verb Forms: open the existing table page.
     if (categoryName == 'verb forms' ||
-        categoryName == 'verb form' ||
-        categoryName.contains('verb forms')) {
+        categoryName == 'verb form table' ||
+        categoryName == 'verb forms table') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const VerbFormsPage()),
       );
-
       return;
     }
 
+    if (categoryName == 'antonyms table' ||
+        categoryName == 'antonym table' ||
+        categoryName == 'antonyms') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AntonymsTablePage()),
+      );
+      return;
+    }
+
+    if (categoryName.trim().toLowerCase() == 'synonyms table' ||
+        categoryName.trim().toLowerCase() == 'synonym table' ||
+        categoryName.trim().toLowerCase() == 'synonyms') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SynonymsTablePage()),
+      );
+      return;
+    }
+
+    // Categories containing one PDF.
     final dynamic singleFile = category['single_file'];
 
     if (singleFile is Map) {
       _openPdf(provider, Map<String, dynamic>.from(singleFile));
-
       return;
     }
 
+    // Other categories: open their PDF/file listing.
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -154,53 +197,15 @@ class _EnglishMasterPageState extends State<EnglishMasterPage> {
                                   padding: const EdgeInsets.only(bottom: 16),
                                   child: _buildImageMenuCard(
                                     title: title,
-                                    imageUrl: (category['image'] ?? '')
-                                        .toString(),
+                                    imageUrl:
+                                        category['image']?.toString().trim() ??
+                                        '',
                                     icon: _getCategoryIcon(title),
                                     onTap: () =>
                                         _handleCategoryTap(provider, category),
                                   ),
                                 );
                               }),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _buildImageMenuCard(
-                                  title: 'Verb Forms',
-                                  icon: Icons.table_chart_rounded,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const VerbFormsPage(),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _buildImageMenuCard(
-                                  title: 'Translator',
-                                  icon: Icons.translate_rounded,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const TranslatorPage(),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 40),
-                                child: _buildImageMenuCard(
-                                  title: 'Word Family',
-                                  icon: Icons.account_tree_rounded,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const WordFamilyPage(),
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -220,7 +225,8 @@ class _EnglishMasterPageState extends State<EnglishMasterPage> {
     String imageUrl = '',
   }) {
     const accentColor = Color(0xFFF16704);
-    final hasImage = imageUrl.isNotEmpty && imageUrl != 'null';
+    final hasImage =
+        imageUrl.trim().isNotEmpty && imageUrl.trim().toLowerCase() != 'null';
 
     return GestureDetector(
       onTap: onTap,
